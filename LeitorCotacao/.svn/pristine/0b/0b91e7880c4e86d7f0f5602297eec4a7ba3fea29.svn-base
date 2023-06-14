@@ -1,0 +1,2874 @@
+Attribute VB_Name = "RotinasGerais"
+Option Explicit
+
+'VARIÁVEIS DE CONTROLE DE SEGURANÇA
+Public c_VencLicenca As String
+Public n_Licenca     As Integer
+Public c_Modulos     As String
+Public c_ContraSenha As String
+Public LinearSegurancaDll As Object
+
+Declare Function GetPrivateProfileString Lib "KERNEL32" _
+    Alias "GetPrivateProfileStringA" _
+    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, _
+    ByVal lpDefault As String, ByVal lpReturnedString As String, _
+    ByVal nSize As Long, ByVal lpFileName As String) As Long
+    
+Declare Function WritePrivateProfileString Lib "KERNEL32" _
+    Alias "WritePrivateProfileStringA" _
+    (ByVal lpApplicationName As String, ByVal lpKeyName As Any, _
+    ByVal lpString As Any, ByVal lpFileName As String) As Long
+
+Public Declare Sub Sleep Lib "KERNEL32" (ByVal dwMilliseconds As Long)
+
+'CONTROLADORES DE OPERAÇÃO
+Public Const ArsNovo     As String = "NOVO"
+Public Const ArsEditar   As String = "EDITAR"
+Public cOperacao         As String
+'CONTROLE DE INCLUSÃO, ALTERAÇÃO E CONTABILIZAÇÃO
+Public cCIAC             As String
+'VARIAVEIS DE CONEXÃO E RECORDSET
+Public rs                As New ADODB.Recordset
+Public rsTemp            As New ADODB.Recordset
+Public rsTemp1           As New ADODB.Recordset
+Public cn                As New ADODB.Connection
+Public CnCarga           As New ADODB.Connection
+'STRING DE SELEÇÃO
+Public cSql              As String
+'CONTROLE DO BANCO DE DADOS
+Public dDataBase         As Date
+Public jetProvider       As String, CurrentDSN As String
+Public cCaminhoBanco     As String
+Public NomeBanco         As String
+Public aNomeBanco        As String
+Public cAmbiente         As String 'Ambiente do banco de dados (SQLServer, Access, etc.)
+Public cStringConexao    As String 'Usado pelo crystal para conectar no banco
+'VARIAVEIS DE CONSULTA
+Public cFiltro           As String
+Public cTextoSQL         As String
+Public cInstrucaoSQL     As String
+Public cDescFiltro       As String
+Public cBusca            As String
+'CONTROLE DAS GRADES
+Public cGrade            As String
+Public nLinhaAterior     As Integer
+Public nLinhaAtual       As Integer
+Public nColAterior       As Integer
+Public nColAtual         As Integer
+'VARIAVEIS DE TABELAS
+Public n_CG1_COD          As Long        'CODIGO DO CLIENTE
+Public n_CG2_COD          As Long        'CODIGO DO FORNECEDOR
+Public n_emp_cod          As Long        'codigo da empresa
+Public n_ES1_COD          As Long        'CODIGO DO PRODUTO
+Public c_FNB_COD          As String * 10 'CODIGO DA NATUREZA
+Public n_FA7_NUM          As Long        'NUMERO DA NFS
+Public n_CM11_NUM          As Long        'NUMERO DO PED. COMPRA
+Public c_ES1_RASTRO       As String
+Public n_PV1_COD          As Long        'NUMERO PEDIDO DE VENDA
+Public n_FN1_NUM          As Long        'NUMERO DE FN1 (CONTAS A PAGAR)
+'CONTROLE DE ESTOQUE
+Public dEst_Fecha         As Date
+'VARIAVEIS DA EMPRESA
+Public cEmp_Permis       As String * 5
+Public cTipoLista        As String
+Public cTipoComis        As String
+'VARIAVEIS DE CONTROLE DE ACESSO E USUARIO
+Public cUserSenha        As String
+Public cUserName         As String
+Public cUserVend         As String
+Public cUserAcesso       As Byte
+Public cPermissao        As String * 255
+Public cLicenca          As String
+'VARIAVEIS DE MANUTENÇÃO DO FORMULARIO
+Public nProxCod          As Long
+Public lSetFocus         As Boolean 'Para consistir o foco no novo
+Public nValor            As String * 11
+Public cNomeHist         As String * 50
+Public cExeActivate      As String
+Public nIndex            As Long    'Numero de Auxilio para o List
+Public nI                As Integer
+Public nLin              As Integer 'LINHA DA GRADE
+Public nAux              As Long    'Numero de Auxilio
+Public cAux              As String  'String de Auxilio
+Public lAcha             As Boolean 'Variavel utilizado para acha determinado registro depois de ter digitado o codigo do mesmo
+'VATIAVEIS DE RELATORIO
+Public cEmpresa          As String  'Ler nome da empresa no parametro
+Public nEmp_Cod          As Integer 'Código da empresa
+Public cEmp_Filial       As String  'Código da filial empresa
+Public cTipoRelatorio    As String
+Public cTabela           As String  'Usado para determinar se o relatorio será filtrado
+Public cTipoTabela       As String
+Public cPathRel          As String
+Public cNomeRel          As String  'Para permitir alterar o caminho dos relatórios do Crystal
+'USADO NA FUNÇÃO EXTENSO
+Dim Unidade(1 To 9)      As String
+Dim Dezena(17)           As String
+Dim Centena(1 To 9)      As String
+Dim Inteiro              As String
+Dim tamanho              As Integer
+'VARIAVEIS DE TRATAMENTO DE ABERTURA DE ARQUIVOS
+Public nArq              As Integer
+Public cArq              As String
+Public cCaminho          As String
+'USANDO NA EXPORTAÇÃO
+Public VendaPrazo        As String
+Public CaminhoTransf     As String
+Public CaminhoRecept     As String
+Public ArqPergunta       As String
+Public ArqResposta       As String
+Public ArqComfirma       As String
+Public LinhaRV           As String
+'VARIAVEIS DE BLOQUEIO DE CREDITO
+Public n_SaldoCredito   As Currency
+Public n_VrAtraso       As Currency
+'VARIAVEIS DE IMPORTACAO DE RV
+Public nLinAFC          As Integer
+Public nLinVEN          As Integer
+Public nLinFIM          As Integer
+Public cData            As String
+Public cHora            As String
+Public cNomeArq         As String
+'VARIAVEL DE CONSULTA SE ESTA CADASTRANDO CLIENTE E RETORNA PARA ENRADA DE CHEQUE
+Public bCheques         As Boolean
+'Autoprocura em Combos
+Global Combo As String
+Declare Function GetUserName Lib "advapi32.dll" Alias "GetUserNameA" (ByVal lpBuffer As String, nSize As Long) As Long
+Declare Function SendMessage Lib "user32" Alias "SendMessageA" (ByVal Hwnd As Long, ByVal wMsg As Long, ByVal wParam As Long, lParam As Any) As Long
+Public Const CB_ERR = -1
+Public Const CB_FINDSTRING = &H14C
+Public OpenFile As String
+Public strString As String
+Public intInt As Integer
+Public Const sUsuario As String = "adminlinear"
+Public Const sSenha As String = "@2013linear"
+Private Const REG_DWORD = 4&
+Private Const REG_SZ = 1    'Constant for a string variable type.
+Private Const HKEY_CURRENT_USER = &H80000001
+
+Private Declare Function RegCreateKey Lib "advapi32.dll" Alias _
+       "RegCreateKeyA" (ByVal hKey As Long, ByVal lpSubKey As String, _
+       phkResult As Long) As Long
+
+Private Declare Function RegSetValueEx Lib "advapi32.dll" Alias _
+       "RegSetValueExA" (ByVal hKey As Long, ByVal lpValueName As String, _
+       ByVal Reserved As Long, ByVal dwType As Long, lpData As Any, ByVal _
+       cbData As Long) As Long
+
+Private Declare Function RegCloseKey Lib "advapi32.dll" _
+       (ByVal hKey As Long) As Long
+
+Private Declare Function GetSystemDirectory Lib "KERNEL32" Alias "GetSystemDirectoryA" (ByVal lpBuffer As String, ByVal nSize As Long) As Long
+
+'pega caminho de pasta de systema para pegar o arquivo odbc
+Private Function DriverPath() As String
+    Dim Retorno As Long
+    DriverPath = Space(255)
+    Retorno = GetSystemDirectory(DriverPath, 255)
+    DriverPath = Left$(DriverPath, Retorno)
+    DriverPath = DriverPath & "myodbc3.dll"
+End Function
+
+'cria DSN automaticamente
+Public Sub CreateDSN(ByVal DSN As String, ByVal BancoNome As String, ByVal Description As String, _
+                    ByVal User As String, ByVal PWD As String, ByVal Server As String)
+    Const DriverName = "MySQL ODBC 3.51 Driver"
+    Dim lResult         As Long
+    Dim hKeyHandle      As Long
+    Dim hKeyHandSub     As Long
+    Dim sPorta          As String
+    Dim sIniFile        As String
+   
+    'Armazena local de arquivo .INI
+    sIniFile = App.Path & "/sglinx.ini"
+  
+    sPorta = sGetINI(sIniFile, "Settings", "PORTA", "")
+    If sPorta = "" Then
+        writeINI sIniFile, "Settings", "PORTA", "3306"
+        sPorta = "3306"
+    End If
+  
+    'cria chave
+    lResult = RegCreateKey(HKEY_CURRENT_USER, "SOFTWARE\ODBC\ODBC.INI\" & DSN, hKeyHandle)
+    
+
+    'configura os dados
+    lResult = RegSetValueEx(hKeyHandle, "Database", 0&, REG_SZ, ByVal BancoNome, Len(BancoNome))
+    lResult = RegSetValueEx(hKeyHandle, "Description", 0&, REG_SZ, ByVal Description, Len(Description))
+    lResult = RegSetValueEx(hKeyHandle, "Driver", 0&, REG_SZ, ByVal DriverPath, Len(DriverPath))
+    lResult = RegSetValueEx(hKeyHandle, "Option", 0&, REG_SZ, ByVal "3", Len("3"))
+    lResult = RegSetValueEx(hKeyHandle, "Password", 0&, REG_SZ, ByVal "", Len(""))
+    lResult = RegSetValueEx(hKeyHandle, "Port", 0&, REG_SZ, ByVal sPorta, Len(sPorta))
+    lResult = RegSetValueEx(hKeyHandle, "Stmt", 0&, REG_SZ, ByVal "", Len(""))
+    lResult = RegSetValueEx(hKeyHandle, "Server", 0&, REG_SZ, ByVal Server, Len(Server))
+    lResult = RegSetValueEx(hKeyHandle, "User", 0&, REG_SZ, ByVal "", Len(""))
+
+    DSN = "mysglinxdsn"
+    'Fecha chave.
+    lResult = RegCloseKey(hKeyHandle)
+
+    'salva dsn em lista para abrir em gerenciador
+    lResult = RegCreateKey(HKEY_CURRENT_USER, "SOFTWARE\ODBC\ODBC.INI\ODBC Data Sources", hKeyHandle)
+    lResult = RegSetValueEx(hKeyHandle, DSN, 0&, REG_SZ, ByVal DriverName, Len(DriverName))
+    lResult = RegCloseKey(hKeyHandle)
+End Sub
+
+'Autoprocura em Combos
+Sub AutoProcura(cbo As ComboBox, KeyAscii As Integer)
+    Dim sBuffer As String
+    Dim lRetVal As Long
+    sBuffer = Left(cbo.Text, cbo.SelStart) & Chr(KeyAscii)
+    lRetVal = SendMessage((cbo.Hwnd), CB_FINDSTRING, -1, ByVal sBuffer)
+    If lRetVal <> CB_ERR Then
+        cbo.ListIndex = lRetVal
+        cbo.Text = cbo.List(lRetVal)
+        cbo.SelStart = Len(sBuffer)
+        cbo.SelLength = Len(cbo.Text)
+        KeyAscii = 0
+    End If
+End Sub
+
+Sub Abre_Conexao()
+   If cAmbiente = "access" Then
+      cn.Provider = jetProvider
+      cn.Open NomeBanco, "admin", ""
+   ElseIf cAmbiente = "mysql" Then
+      cn.Open jetProvider
+   ElseIf cAmbiente = "firebird" Then
+      cn.Provider = "LCPI.IBProvider"
+      cn.Open NomeBanco, "aries", "aries"
+   End If
+End Sub
+
+Function CalcImposto(n_Aliquota As Currency, n_BASE As Currency, n_CodEnt As Integer, c_Campo As String, Optional c_Tipo As String) As Variant
+   cAux = LerNome("CGH", "CGH_COD = " & Val(n_CodEnt), c_Campo)
+   CalcImposto = "0.00"
+   If cAux = "1" Or n_Aliquota > 0 Then
+      CalcImposto = CDbl(n_BASE) * CDbl(n_Aliquota) / 100
+   End If
+End Function
+
+Function Codificar_Senha(sSenha As String) As String
+On Error Resume Next
+   Dim valret As String
+   Dim n      As Byte
+   valret = ""
+   For n = 1 To Len(sSenha)
+       valret = valret & Chr(Asc(Mid(sSenha, n, 1)) + 71)
+   Next
+   Codificar_Senha = valret
+End Function
+
+Function DeCodificar_Senha(sSenha As Variant) As String
+   Dim valret As String
+   Dim n      As Byte
+   valret = ""
+   If Not IsNull(sSenha) Then
+      For n = 1 To Len(sSenha)
+          valret = valret & Chr(Asc(Mid(sSenha, n, 1)) - 71)
+      Next
+      DeCodificar_Senha = valret
+   End If
+End Function
+
+Function Formata_Data(Data As Variant, Optional Tipo As String)
+   Tipo = IIf(IsMissing(Tipo), "D", Tipo)
+   If cAmbiente = "access" Then
+      If Tipo = "D" And Not IsNull(Data) Then
+         Formata_Data = "#" & Format(Data, "mm/dd/yy") & "#"
+      ElseIf Tipo = "T" And Not IsNull(Data) Then
+         Formata_Data = "#" & Format(Data, "hh:mm:ss") & "#"
+      Else
+         Formata_Data = Null
+      End If
+   ElseIf cAmbiente = "mysql" Then
+      If Tipo = "D" And Not IsNull(Data) Then
+         Formata_Data = "'" & Format(Data, "yyyy-mm-dd") & "'"
+      ElseIf Tipo = "T" And Not IsNull(Data) Then
+         Formata_Data = "'1899-12-30 " & Format(Data, "hh:mm:ss") & "'"
+      Else
+         Formata_Data = "'0000-00-00'"
+      End If
+   End If
+End Function
+
+Function gVgPt(ByVal sEntrada As Variant) As String
+    If sEntrada = "" Or sEntrada = "0.00" Or Not IsNumeric(sEntrada) Then gVgPt = "0":        Exit Function
+    sEntrada = Replace(sEntrada, ".", "")
+    sEntrada = Replace(sEntrada, ",", ".")
+    gVgPt = sEntrada
+End Function
+
+Sub LerConfig(cSecao As String)
+    Dim sIniFile As String
+    'Armazena local de arquivo .INI
+    sIniFile = App.Path & "/sglinx.ini"
+    'ler nome do banco
+    NomeBanco = sGetINI(sIniFile, cSecao, "NomeBanco", "?")
+    If NomeBanco = "?" Then
+       'ler caminho do banco
+       NomeBanco = InputBox$("Entre com o caminho do Banco de dados:")
+       writeINI sIniFile, cSecao, "NomeBanco", NomeBanco
+    End If
+    'ler nome do banco
+    cPathRel = sGetINI(sIniFile, cSecao, "NomeRel", "?")
+    If cPathRel = "?" Then
+       'ler caminho do banco
+       cPathRel = InputBox$("Entre com o caminho dos relatorios:")
+       writeINI sIniFile, cSecao, "NomeRel", cPathRel
+    End If
+    'ler Jet Provider
+    CurrentDSN = sGetINI(sIniFile, cSecao, "Provider", "?")
+    If CurrentDSN = "?" Then
+       CurrentDSN = InputBox$("Entre com o Jet Provider:")
+       writeINI sIniFile, cSecao, "Provider", CurrentDSN
+    End If
+    jetProvider = LinearSegurancaDll.Conexao.ConectaBD("", "", 6, 0, CurrentDSN, , True)
+End Sub
+
+Function LerNome(sNomeTabela As String, sCriterio As String, _
+                 sCampoRetorno As String, Optional sTipo As String, Optional sAlias As String)
+   Dim valret  As Variant
+   Dim rs_Temp As New Recordset
+   If InStr(sCriterio, "=") = Len(sCriterio) Then Exit Function
+   valret = ""
+   cSql = "SELECT " & sCampoRetorno & " FROM " & StrConv(sNomeTabela, vbLowerCase) & " Where " & sCriterio
+   On Error Resume Next
+   rs_Temp.Open cSql, cn, adOpenStatic, adLockReadOnly, adCmdText
+   If Not rs_Temp.EOF Then
+      If sAlias = "" Then
+         valret = rs_Temp(sCampoRetorno)
+      Else
+         valret = rs_Temp(sAlias)
+      End If
+   End If
+   rs_Temp.Close
+   'TRATAR RETORNO
+   If IsNull(sTipo) Then sTipo = ""
+   If valret = "" Or IsNull(valret) Then
+      If sTipo = "N" Then
+         valret = 0
+      ElseIf sTipo = "D" Then
+         valret = "__/__/__"
+      Else
+         valret = ""
+      End If
+   End If
+   LerNome = valret
+End Function
+
+Function LerParametro(c_chave As String) As Variant
+On Error Resume Next
+   Dim v_Retorno As Variant
+   Dim iSql      As String
+   iSql = "SELECT * FROM Parametro WHERE Pr_Chave = '" & c_chave & "'"
+   rsTemp.Open iSql, cn, adOpenForwardOnly, adLockReadOnly
+   If Not rsTemp.EOF Then
+      v_Retorno = rsTemp!Pr_Valor
+   Else
+      MsgBox "Parametro " & c_chave & " não cadastrado.", vbCritical, "SGLinx - ROTINAS GERAIS"
+   End If
+   rsTemp.Close
+   LerParametro = v_Retorno
+End Function
+
+Function LogErros(c_Numero As String, c_Descricao As String, c_Rotina As String, c_Origem As String, _
+                  c_Relatorio As String, c_Usuario As String, c_Tabela As String, d_Data As Date, d_Hora As Date, c_Maquina As String)
+On Error GoTo Err_Banco
+   ReDim aCampos(10, 1)
+   aCampos(0, 0) = "Numero":      aCampos(0, 1) = "'" & c_Numero & "'"
+   aCampos(1, 0) = "Descricao":   aCampos(1, 1) = "'" & c_Descricao & "'"
+   aCampos(2, 0) = "Rotina":      aCampos(2, 1) = "'" & c_Rotina & "'"
+   aCampos(3, 0) = "Origem":      aCampos(3, 1) = "'" & c_Origem & "'"
+   aCampos(4, 0) = "Relatorio":   aCampos(4, 1) = "'" & c_Relatorio & "'"
+   aCampos(5, 0) = "Usuario":     aCampos(5, 1) = "'" & c_Usuario & "'"
+   aCampos(6, 0) = "Tabela":      aCampos(6, 1) = "'" & c_Tabela & "'"
+   aCampos(7, 0) = "Data":        aCampos(7, 1) = Formata_Data(d_Data, "D")
+   aCampos(8, 0) = "Hora":        aCampos(8, 1) = Formata_Data(d_Hora, "T")
+   aCampos(9, 0) = "Maquina":     aCampos(9, 1) = "'" & c_Maquina & "'"
+   cn.Execute Monta_Sql(aCampos, "z_logerros", "I")
+Err_Banco_fim:
+   Exit Function
+Err_Banco:
+   MsgBox "ROTINA: GERAL.LogErros." & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Resume Err_Banco_fim
+    
+End Function
+
+Sub Main()
+Dim sNome, sArquivo As String
+
+   Dim sIniFile        As String
+   Dim DataLancamentos As String
+   'Armazena local de arquivo .INI
+   sIniFile = App.Path & "/sglinx.ini"
+   'Licença de uso (SGLinx Light ou Completo)
+   cLicenca = sGetINI(sIniFile, "Settings", "Licenca", "")
+   If cLicenca = "" Then
+      cLicenca = InputBox$("Entre com a Licença de Uso do Sistema:")
+      writeINI sIniFile, "Settings", "Licenca", cLicenca
+   End If
+   Call Valida_Menu(cLicenca)
+   'ler Ambiente
+   cAmbiente = sGetINI(sIniFile, "Settings", "Ambiente", "?")
+   If cAmbiente = "" Then
+      cAmbiente = InputBox$("Entre com o nome do Banco de dados:")
+      writeINI sIniFile, "Settings", "Ambiente", cAmbiente
+   End If
+   'ler Jet Provider
+   CurrentDSN = sGetINI(sIniFile, "Settings", "Provider", "")
+   If CurrentDSN = "" Then
+      CurrentDSN = InputBox$("Entre com o Jet Provider:")
+      writeINI sIniFile, "Settings", "Provider", CurrentDSN
+      Dim lngRet As Long
+      CreateDSN CurrentDSN, "sglinx", "MySQL ODBC 3.51 para SGLinx", "root", "", jetProvider
+      jetProvider = "DSN=" & CurrentDSN & ";UID=root"
+   End If
+   jetProvider = LinearSegurancaDll.Conexao.ConectaBD("", "", 6, 0, CurrentDSN, , True)
+   'CAMINHO DE ARQUIVOS IMPORTADOS E EXPORTADOS
+   CaminhoTransf = sGetINI(sIniFile, "Path", "tx", "?")
+   If CaminhoTransf = "?" Then CaminhoTransf = "c:\pdv\tx"
+   CaminhoRecept = sGetINI(sIniFile, "Path", "rx", "?")
+   If CaminhoRecept = "?" Then CaminhoRecept = "c:\pdv\rx"
+   'NOME DOS ARQUIVO DE PERGUNTA E RESPONSTA
+   VendaPrazo = sGetINI(sIniFile, "VENDAPRAZO", "ABILITADO", "?")
+   If VendaPrazo = "?" Then VendaPrazo = "NÃO"
+   ArqPergunta = sGetINI(sIniFile, "VENDAPRAZO", "ARQUIVOPERGUNTA", "?")
+   If ArqPergunta = "?" Then ArqPergunta = "PERGUNTA"
+   ArqResposta = sGetINI(sIniFile, "VENDAPRAZO", "ARQUIVORESPOSTA", "?")
+   If ArqResposta = "?" Then ArqResposta = "RESPOSTA"
+   ArqComfirma = sGetINI(sIniFile, "VENDAPRAZO", "ARQUIVOCONFIRMA", "?")
+   If ArqComfirma = "?" Then ArqComfirma = "CONFIRMA"
+   'sDriver = "MySQL ODBC 3.51 Driver"
+   'sArquivo = "c:\mysql\data\sglinx"
+   frmLeitorCotacao.Show
+   'Menu.Show
+End Sub
+
+Function Monta_Sql(campos As Variant, NomeTabela As String, Tipo As String, Optional Criterio As String)
+    Dim n      As Byte
+    Dim ls_sql As String
+    ls_sql = ""
+    Select Case Tipo
+        Case "I"
+            ls_sql = "insert into " & StrConv(NomeTabela, vbLowerCase) & "("
+            For n = 0 To UBound(campos) - 1
+                ls_sql = ls_sql & StrConv(campos(n, 0), vbLowerCase)
+                If n < UBound(campos) - 1 Then ls_sql = ls_sql & ","
+            Next
+            ls_sql = ls_sql & ") values ( "
+            For n = 0 To UBound(campos) - 1
+                ls_sql = ls_sql & campos(n, 1)
+                If n < UBound(campos) - 1 Then ls_sql = ls_sql & ","
+            Next
+            ls_sql = ls_sql & ")"
+        Case "U"
+            ls_sql = "update " & StrConv(NomeTabela, vbLowerCase) & " set "
+            For n = 0 To UBound(campos) - 1
+                ls_sql = ls_sql & StrConv(campos(n, 0), vbLowerCase) & " = " & campos(n, 1)
+                If n < UBound(campos) - 1 Then ls_sql = ls_sql & ", "
+            Next
+            If Len(Criterio) > 0 Then ls_sql = ls_sql & " where " & Criterio
+    End Select
+    Monta_Sql = ls_sql
+End Function
+Function ObrigaDecimal(cControl As Control, KeyAscii As Integer)
+    If KeyAscii = 8 Then Exit Function
+    If KeyAscii = 13 Then Exit Function
+    If KeyAscii = 46 Then KeyAscii = 44
+    If KeyAscii = 44 Then
+        If InStr(cControl, ",") > 0 And KeyAscii = 44 Then KeyAscii = 0
+        ObrigaDecimal = KeyAscii
+        Exit Function
+    End If
+    If IsNumeric(Chr(KeyAscii)) = False Then KeyAscii = 0
+End Function
+
+Function ObrigaNumero(cControl As Control, KeyAscii As Integer)
+    If KeyAscii = 8 Then Exit Function
+    If KeyAscii = 13 Then Exit Function
+    If IsNumeric(Chr(KeyAscii)) = False Then KeyAscii = 0
+End Function
+
+Function Posiciona(Controle As Control, Chave As Variant, Tipo As String, Optional tamanho As Integer) As Integer
+   Dim n_I As Integer
+   Posiciona = -1
+   'Posiciona itemdata da combo
+   If Tipo = "1" Then
+      For n_I = 0 To (Controle.ListCount - 1)
+          If Controle.ItemData(n_I) = Chave Then
+            Posiciona = n_I
+             n_I = Controle.ListCount + 1
+          End If
+      Next
+   End If
+   'Posiciona  no left do list
+   If Tipo = "2" Then
+      For n_I = 0 To (Controle.ListCount - 1)
+          If Trim(Left(Controle.List(n_I), tamanho)) = Trim(Chave) Then
+             Posiciona = n_I
+             n_I = Controle.ListCount + 1
+          End If
+      Next
+   End If
+   'Posiciona no RIGHT do list
+   If Tipo = "3" Then
+      For n_I = 0 To (Controle.ListCount - 1)
+          If Trim(Right(Controle.List(n_I), tamanho)) = Trim(Chave) Then
+             Posiciona = n_I
+             n_I = Controle.ListCount + 1
+          End If
+      Next
+   End If
+   'If Posiciona = -1 Then Posiciona = 0
+End Function
+
+Function Preenche_Combo(c_Controle As Control, c_SQL As String, _
+                        n_Tipo As Integer, c_DESC As String, _
+                        c_Cod As String, Optional c_Masc As String)
+On Error GoTo Err_Banco
+   Dim frm As Form
+   Set frm = Screen.ActiveForm
+   Select Case n_Tipo
+      Case 1
+         rsTemp.Open c_SQL, cn, adOpenForwardOnly, adLockReadOnly
+         Do While Not rsTemp.EOF
+            c_Controle.AddItem rsTemp(c_DESC)
+            c_Controle.ItemData(c_Controle.ListCount - 1) = rsTemp(c_Cod)
+            rsTemp.MoveNext
+         Loop
+      Case 2
+         rsTemp.Open c_SQL, cn, adOpenForwardOnly, adLockReadOnly
+         Do While Not rsTemp.EOF
+            cNomeHist = IIf(IsNull(rsTemp(c_DESC)), "", rsTemp(c_DESC))
+            c_Controle.AddItem cNomeHist & " - " & Format(rsTemp(c_Cod), c_Masc)
+            rsTemp.MoveNext
+         Loop
+      Case 3
+         rsTemp.Open c_SQL, cn, adOpenForwardOnly, adLockReadOnly
+         Do While Not rsTemp.EOF
+            c_Controle.AddItem Format(rsTemp(c_Cod), c_Masc) & " - " & rsTemp(c_DESC)
+            rsTemp.MoveNext
+         Loop
+      Case 4
+         rsTemp.Open c_SQL, cn, adOpenForwardOnly, adLockReadOnly
+         Do While Not rsTemp.EOF
+            c_Controle.AddItem Format(rsTemp(c_Cod), c_Masc) & " - " & rsTemp(c_DESC)
+            c_Controle.ItemData(c_Controle.ListCount - 1) = rsTemp(c_Cod)
+            rsTemp.MoveNext
+         Loop
+   End Select
+Err_Banco_fim:
+   If rsTemp.State = 1 Then rsTemp.Close
+   Exit Function
+Err_Banco:
+   MsgBox "ROTINA: GERAL.Preenche_Combo." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.Preenche_Combo.", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+    
+End Function
+
+Function ProxCod(cCampo As String, cTabela As String, Optional c_Serie As String)
+On Error GoTo Err_Banco
+Dim rsProxCod  As New ADODB.Recordset
+   rsProxCod.Open "SELECT Max(" & cCampo & ") As Ultimo FROM " & cTabela, cn, adOpenForwardOnly, adLockReadOnly
+   If IsNull(rsProxCod!ultimo) Or rsProxCod.EOF Or rsProxCod.BOF Then
+      ProxCod = 1
+   Else
+      ProxCod = Val(rsProxCod!ultimo) + 1
+   End If
+Err_Banco_fim:
+   If rsProxCod.State = 1 Then rsProxCod.Close
+   Exit Function
+Err_Banco:
+   MsgBox "ROTINA: GERAL.ProxCod." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.ProxCod.", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+End Function
+
+Public Function Saldo_Produto(n_ES1_COD As Long)
+On Error GoTo Err_Banco
+   Dim rs_Sld As New Recordset
+   cSql = "SELECT ES2_QATU, ES2_QEMPOP, ES2_QEMPNF, ES2_QVENDAS FROM ES2 WHERE ES2.ES1_COD = " & Val(n_ES1_COD)
+   rs_Sld.CursorLocation = adUseServer
+   rs_Sld.Open cSql, cn, adOpenStatic
+   If Not rs_Sld.EOF Then
+      Saldo_Produto = CDbl(rs_Sld!es2_qatu) - CDbl(rs_Sld!ES2_QEMPOP) - CDbl(rs_Sld!ES2_QEMPNF)
+   Else
+      Saldo_Produto = 0
+   End If
+   rs_Sld.Close
+Err_Banco_fim:
+   If rs.State = 1 Then rs.Close
+   Exit Function
+Err_Banco:
+   MsgBox "ROTINA: GERAL.Saldo_Produto." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.Saldo_Produto", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+End Function
+
+Sub SelecionaCampo(Controle As Control, Emasc As Boolean)
+    If Emasc Then
+       Controle.SelStart = 0
+       Controle.SelLength = Len(Controle.FormattedText)
+    Else
+       Controle.SelStart = 0
+       Controle.SelLength = Len(Controle)
+    End If
+End Sub
+
+Public Function sGetINI(sIniFile As String, sSection As String, _
+    sKey As String, sDefault As String) As String
+    Dim sTemp   As String * 256
+    Dim nLength As Integer
+    sTemp = Space$(256)
+    nLength = GetPrivateProfileString(sSection, sKey, sDefault, sTemp, 255, sIniFile)
+    sGetINI = Left$(sTemp, nLength)
+End Function
+
+Function TrocaLetra(cDe As String, cPara As String, cExp As String) As String
+   Static nInd As Integer
+   'Substitue todos os caracteres CR/LF por espaços
+   For nInd = 1 To Len(cExp)
+       If Mid$(cExp, nInd, 1) = cDe Then Mid$(cExp, nInd, 1) = cPara
+   Next nInd
+   TrocaLetra = Trim$(cExp)
+End Function
+
+Public Sub writeINI(sIniFile As String, sSection As String, _
+    sKey As String, sValue As String)
+    
+    Dim n     As Integer
+    Dim sTemp As String
+    
+    sTemp = sValue
+    'Substitue todos os caracteres CR/LF por espaços
+    For n = 1 To Len(sValue)
+        If Mid$(sValue, n, 1) = vbCr Or Mid$(sValue, n, 1) = vbLf Then Mid$(sValue, n, 1) = " "
+    Next n
+    n = WritePrivateProfileString(sSection, sKey, sTemp, sIniFile)
+
+End Sub
+
+Public Function Calc_CNPJ(c_CNPJ As String) As Boolean
+   
+   Dim Mult1 As String
+   Dim Mult2 As String
+   Dim dig1  As Integer
+   Dim dig2  As Integer
+   Dim x     As Integer
+   
+   Mult1 = "543298765432"
+   Mult2 = "6543298765432"
+   c_CNPJ = Replace(c_CNPJ, ".", "")
+   c_CNPJ = Replace(c_CNPJ, "/", "")
+   c_CNPJ = Replace(c_CNPJ, "-", "")
+   For x = 1 To 12
+      dig1 = dig1 + (Val(Mid$(c_CNPJ, x, 1)) * Val(Mid$(Mult1, x, 1)))
+   Next
+   For x = 1 To 13
+      dig2 = dig2 + (Val(Mid$(c_CNPJ, x, 1)) * Val(Mid$(Mult2, x, 1)))
+   Next
+   dig1 = (dig1 * 10) Mod 11
+   dig2 = (dig2 * 10) Mod 11
+   If dig1 = 10 Then dig1 = 0
+   If dig2 = 10 Then dig2 = 0
+   Calc_CNPJ = True
+   If dig1 <> Val(Mid$(c_CNPJ, 13, 1)) Then Calc_CNPJ = False
+   If dig2 <> Val(Mid$(c_CNPJ, 14, 1)) Then Calc_CNPJ = False
+   
+End Function
+
+Public Function Calc_CPF(c_CPF As String) As Boolean
+   Dim dig1  As Integer
+   Dim dig2  As Integer
+   Dim Mult1 As Integer
+   Dim Mult2 As Integer
+   Dim x     As Integer
+   
+   Mult1 = 10
+   Mult2 = 11
+   c_CPF = Replace(c_CPF, ".", "")
+   c_CPF = Replace(c_CPF, "-", "")
+   For x = 1 To 9
+      dig1 = dig1 + (Val(Mid$(c_CPF, x, 1)) * Mult1)
+      Mult1 = Mult1 - 1
+   Next
+   For x = 1 To 10
+      dig2 = dig2 + (Val(Mid$(c_CPF, x, 1)) * Mult2)
+      Mult2 = Mult2 - 1
+   Next
+   dig1 = (dig1 * 10) Mod 11
+   dig2 = (dig2 * 10) Mod 11
+   If dig1 = 10 Then dig1 = 0
+   If dig2 = 10 Then dig2 = 0
+   Calc_CPF = True
+   If Val(Mid$(c_CPF, 10, 1)) <> dig1 Then Calc_CPF = False
+   If Val(Mid$(c_CPF, 11, 1)) <> dig2 Then Calc_CPF = False
+   
+End Function
+
+Public Sub AtualizaEstrutura()
+ On Error Resume Next
+    'log de abertura/fechamento/cancelamento
+    cSql = "create table logafc (tipo char(1) not null, "
+    cSql = cSql & "cupom char(6) not null , "
+    cSql = cSql & "caixa char(3) not null , "
+    cSql = cSql & "loja char(4) not null , "
+    cSql = cSql & "resposta char(8) not null , "
+    cSql = cSql & "operador char(14) not null , "
+    cSql = cSql & "data date, "
+    cSql = cSql & "hora time, "
+    cSql = cSql & "mensagem char(250) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table logafc add dataimporta date"
+    cn.Execute "alter table logafc add horaimporta time"
+    cn.Execute "alter table logafc drop mensagem"
+    'log de item de venda
+    cSql = "create table logitvenda (tipo char(1) not null, "
+    cSql = cSql & "cupom char(6) not null , "
+    cSql = cSql & "caixa char(3) not null , "
+    cSql = cSql & "loja char(4) not null , "
+    cSql = cSql & "resposta char(8) not null , "
+    cSql = cSql & "item char(6) not null , "
+    cSql = cSql & "codlido char(20) not null , "
+    cSql = cSql & "codbusca char(14) not null , "
+    cSql = cSql & "quant decimal(16,2) not null , "
+    cSql = cSql & "prunit decimal(16,2) not null , "
+    cSql = cSql & "tributo char(3) not null , "
+    cSql = cSql & "descricao char(40) not null , "
+    cSql = cSql & "desconto decimal(16,2) not null , "
+    cSql = cSql & "tpdesc char(1) not null , "
+    cSql = cSql & "total decimal(16,2) not null , "
+    cSql = cSql & "totdesc decimal(16,2) not null , "
+    cSql = cSql & "origem char(1) not null , "
+    cSql = cSql & "outros char(20) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table logitvenda add codprod int(10) not null"
+    cn.Execute "alter table logitvenda add dataimporta date"
+    cn.Execute "alter table logitvenda add horaimporta time"
+    cn.Execute "alter table logitvenda drop codlido"
+    cn.Execute "alter table logitvenda add familia int (6)"
+    cn.Execute "alter table logitvenda add departamento int (6)"
+    'log de finalizacao
+    cSql = "create table logfim (tipo char(1) not null, "
+    cSql = cSql & "cupom char(6) not null , "
+    cSql = cSql & "caixa char(3) not null , "
+    cSql = cSql & "loja char(4) not null , "
+    cSql = cSql & "resposta char(8) not null , "
+    cSql = cSql & "codigo char(2) not null , "
+    cSql = cSql & "descricao char(20) not null , "
+    cSql = cSql & "legenda char(20) not null , "
+    cSql = cSql & "valor decimal(16,2) not null , "
+    cSql = cSql & "troco decimal(16,2) not null , "
+    cSql = cSql & "valorliq decimal(16,2) not null , "
+    cSql = cSql & "desconto decimal(16,2) not null , "
+    cSql = cSql & "totdesc decimal(16,2) not null , "
+    cSql = cSql & "tpdesc char(1) not null , "
+    cSql = cSql & "vale decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table finalizadoras change legenda legenda char (20)"
+    cn.Execute "alter table logfim add dataimporta date"
+    cn.Execute "alter table logfim add horaimporta time"
+    cn.Execute "alter table logfim add data date"
+    cn.Execute "alter table logfim add operador char (14)"
+    'tabela de confirmacao de venda a prazo
+    cSql = "create table confirma_vp (tipo char(1) not null, "
+    cSql = cSql & "cupom char(6) not null , "
+    cSql = cSql & "caixa char(6) not null , "
+    cSql = cSql & "cliente char(6) not null , "
+    cSql = cSql & "data date, hora time ) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela de negociacao
+    cSql = "create table cm11 (cm11_num int(10) not null, "
+    cSql = cSql & "fn4_cod int(10) not null , "
+    cSql = cSql & "cg2_cod int(10) not null , "
+    cSql = cSql & "cg9_cod int(10) not null , "
+    cSql = cSql & "es1_cod int(10) not null , "
+    cSql = cSql & "cm11_dtentrega date, "
+    cSql = cSql & "cm11_dtfat date, "
+    cSql = cSql & "cm11_prazo char (10) not null, "
+    cSql = cSql & "cm11_desconto decimal (16,2) not null, "
+    cSql = cSql & "cm11_prcompra decimal (16,2) not null, "
+    cSql = cSql & "cm11_vldesc1 decimal (16,2) not null, "
+    cSql = cSql & "cm11_quant decimal (16,2) not null, "
+    cSql = cSql & "cm11_qtpendente decimal (16,2) not null, "
+    cSql = cSql & "cm11_ultpreco decimal (16,2) not null, "
+    cSql = cSql & "cm11_prvendaatual decimal (16,2) not null, "
+    cSql = cSql & "cm11_margem decimal (16,2) not null, "
+    cSql = cSql & "cm11_qttroca decimal (16,2) not null, "
+    cSql = cSql & "cm11_prvenda decimal (16,2) not null, "
+    cSql = cSql & "cm11_custo decimal (16,2) not null, "
+    cSql = cSql & "cm11_pmz decimal (16,2) not null, "
+    cSql = cSql & "cm11_embcompra char (10) not null, "
+    cSql = cSql & "cm11_estatual int (10) not null, "
+    cSql = cSql & "cm11_girodia int (10) not null, "
+    cSql = cSql & "cm11_ultcompra date) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cm11 add cm11_compra char(1) not null"
+    cn.Execute "alter table cm11 drop cm11_vldesc1"
+    cn.Execute "alter table cm11 drop cm11_qtpendente"
+    cn.Execute "alter table cm11 drop cm11_ultpreco"
+    cn.Execute "alter table cm11 drop cm11_prvendaatual"
+    cn.Execute "alter table cm11 drop cm11_margem"
+    cn.Execute "alter table cm11 drop cm11_qttroca"
+    cn.Execute "alter table cm11 drop cm11_custo"
+    cn.Execute "alter table cm11 drop cm11_pmz"
+    cn.Execute "alter table cm11 drop cm11_embcompra"
+    cn.Execute "alter table cm11 drop cm11_estatual"
+    cn.Execute "alter table cm11 drop cm11_girodia"
+    cn.Execute "alter table cm11 drop cm11_ultcompra"
+    cn.Execute "alter table cm11 drop cm11_compra"
+    cn.Execute "alter table cm11 add primary key (cm11_num)"
+    cn.Execute "alter table cm11 add cm11_data date"
+    cn.Execute "alter table cm11 add cmd_num int (6) default 0"
+    cn.Execute "alter table cm11 add cm11_total decimal (16,2) default 0.00"
+    
+    'tabela de item de negociacao
+    cSql = "create table cm11a (cm11_num int(10) not null, "
+    cSql = cSql & "es1_cod int(10) not null , "
+    cSql = cSql & "cm11_prcompra decimal (16,2) not null, "
+    cSql = cSql & "cm11_vldesc1 decimal (16,2) not null, "
+    cSql = cSql & "cm11_quant decimal (16,2) not null, "
+    cSql = cSql & "cm11_qtpendente decimal (16,2) not null, "
+    cSql = cSql & "cm11_ultpreco decimal (16,2) not null, "
+    cSql = cSql & "cm11_prvendaatual decimal (16,2) not null, "
+    cSql = cSql & "cm11_margem decimal (16,2) not null, "
+    cSql = cSql & "cm11_qttroca decimal (16,2) not null, "
+    cSql = cSql & "cm11_prvenda decimal (16,2) not null, "
+    cSql = cSql & "cm11_custo decimal (16,2) not null, "
+    cSql = cSql & "cm11_pmz decimal (16,2) not null, "
+    cSql = cSql & "cm11_embcompra char (10) not null, "
+    cSql = cSql & "cm11_estatual int (10) not null, "
+    cSql = cSql & "cm11_girodia int (10) not null, "
+    cSql = cSql & "cm11_ultcompra date) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cm11a add es1_alx char(2) not null"
+    cn.Execute "alter table cm11a add es1_um char(2) not null"
+    cn.Execute "alter table cm11a drop cm11_qtpendente"
+    cn.Execute "alter table cm11a drop cm11_ultpreco"
+    cn.Execute "alter table cm11a drop cm11_prvendaatual"
+    cn.Execute "alter table cm11a drop cm11_margem"
+    cn.Execute "alter table cm11a drop cm11_qttroca"
+    cn.Execute "alter table cm11a drop cm11_custo"
+    cn.Execute "alter table cm11a drop cm11_pmz"
+    cn.Execute "alter table cm11a drop cm11_embcompra"
+    cn.Execute "alter table cm11a drop cm11_estatual"
+    cn.Execute "alter table cm11a drop cm11_girodia"
+    cn.Execute "alter table cm11a drop cm11_ultcompra"
+    cn.Execute "alter table cm11a drop cm11_compra"
+    cn.Execute "alter table cm11a drop cm11_prvenda"
+    cn.Execute "alter table cm11a drop es1_alx"
+    cn.Execute "alter table cm11a drop es1_um"
+    cn.Execute "alter table cm11a add cm11_desconto decimal(10,2) default 0.00"
+    cn.Execute "alter table cm11a add cm11_margem decimal(10,2) default 0.00"
+    cn.Execute "alter table cm11a add cmd_num int (6) default 0"
+    cn.Execute "alter table cm11a add cm11_prvarejo decimal (16,2) default 0.00"
+    cn.Execute "alter table cm11a add cm11_um char (1) default 'v'"
+    cn.Execute "alter table cm11a add cm11_emb int (5) default 0"
+    'tabela de inventário
+    cn.Execute "alter table es7 add es7_status int (1) default 0"
+    'tabelas de cadastro
+    cn.Execute "alter table cg1 add cg2_cod int(10) not null"
+    cn.Execute "alter table cg1 add cg1_juros decimal(16,2) not null"
+    cn.Execute "alter table cg1 add cg1_dependentes int(10) not null"
+    cn.Execute "alter table cg1 add cg1_observacao char(255)"
+    cn.Execute "alter table cg1 add cg1_contatocobre char(50)"
+    cn.Execute "alter table cg1 add cg1_fdlpontos decimal(16,2) default 0.00"
+    cn.Execute "alter table cg1 drop fdl_pontos"
+    cn.Execute "alter table cg1 add cg1_complcobre char(25)"
+    'Banco do Cliente
+    cSql = "create table cg1_banco (cg1_banco_num int (10), "
+    cSql = cSql & "cg1_cod int (10) not null, "
+    cSql = cSql & "cg1_banco int (3), "
+    cSql = cSql & "cg1_agencia int (3), "
+    cSql = cSql & "cg1_conta int (3), primary key (cg1_banco_num)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cg2 change cg2_inscestadual cg2_inscestadual char(20) not null"
+    cn.Execute "alter table cg2 change cg2_inscmunicipal cg2_inscmunicipal char(20) not null"
+    cn.Execute "alter table cg2 change cg2_cgc cg2_cgc char(20) not null"
+    cn.Execute "alter table cg2 change fnb_cod fnb_cod char(10) not null"
+    cn.Execute "alter table cg2 add cg2_transp char(1)"
+    cn.Execute "alter table cg2 add cg2_observacao char(255)"
+    cn.Execute "alter table cg3 add cg3_ativo char(1) default 1 not null"
+    cn.Execute "alter table cg3 add cg3_oper char(1) not null"
+    cn.Execute "alter table cg3 add cg3_recto char(1) not null"
+    cn.Execute "alter table cg3 add cg3_premio char(1) not null"
+    cn.Execute "alter table cg3 add cg3_ajuda decimal(16,2) not null"
+    cn.Execute "alter table cg3 add cg3_cota decimal(16,2) not null"
+    cn.Execute "alter table cg3 add ara_cod int(10) not null"
+    cn.Execute "alter table cg3 add cg3_oper char(1) not null"
+    cn.Execute "alter table cg3 add cg3_cota decimal(16,2) not null"
+    cn.Execute "alter table cgc add cgc_ciac char(50) not null"
+    'tabela de comprador
+    cSql = "create table cg9 (cg9_cod int(10) not null, "
+    cSql = cSql & "cg9_nome char(50) not null , "
+    cSql = cSql & "cg9_tipopessoa char (1) not null, "
+    cSql = cSql & "cg9_bairro char (30) not null, "
+    cSql = cSql & "cg9_cidade char (30) not null, "
+    cSql = cSql & "cg9_cep char (15) not null, "
+    cSql = cSql & "cg9_uf char (2) not null, "
+    cSql = cSql & "cg9_fone char (15) not null, "
+    cSql = cSql & "cg9_cpf char (15) not null, "
+    cSql = cSql & "cg9_cgc char (15) not null, "
+    cSql = cSql & "cg9_dtcad date, "
+    cSql = cSql & "cg9_ciac char(50) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cg9 add cg9_cod int(10) not null"
+    'item de nfe
+    cn.Execute "alter table cma add cg2_cod int(10) not null"
+    cn.Execute "alter table cma add cma_desconto decimal(16,2)"
+    cn.Execute "alter table cma add es1_pmz decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_pmzcheio decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_prsugestao decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_prsugestaomedia decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_prcustomedio decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_ultmargem decimal (16,2) default 0"
+    cn.Execute "alter table cma add es1_pralterado char (1) default 0"
+    cn.Execute "alter table cma drop es1_pralterado"
+    cn.Execute "alter table cma drop primary key, add primary key(cmd_serie, cmd_num, cma_item, cg2_cod)"
+    'cabeÇalho de nfe
+    cn.Execute "alter table cmd add cmd_empresa char(1) not null"
+    cn.Execute "alter table cmd add cc_cod int (4) default 0"
+    cn.Execute "alter table cmd add cmd_tipofrete char(1) default 0"
+    cn.Execute "alter table cmd change cm3_num cm11_num int (10) default 0"
+    'exclusão das tabelas cm3 e cm4 (antigas pedido de compra)
+    'usamos a cm11 no sistema (negociação e pedido de compra)
+    'pedido de compra
+    cn.Execute "drop table cm3"
+    cn.Execute "drop table cm4"
+    'solicitacao de compra
+    cSql = "create table cm8(cm8_num int(10) not null, "
+    cSql = cSql & "cm8_emissao date, "
+    cSql = cSql & "cm8_solicitante int (10) not null, "
+    cSql = cSql & "cm8_obs char(100) not null , "
+    cSql = cSql & "es1_cod int (10) not null, "
+    cSql = cSql & "cm8_quant decimal (16,2) not null, "
+    cSql = cSql & "cm8_origem char (30) not null, "
+    cSql = cSql & "cm8_status char (1) not null, "
+    cSql = cSql & "cm8_ciac char(50) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela de produtos
+    cn.Execute "alter table es1 add es1_custo decimal(16,2) not null"
+    cn.Execute "alter table es1 add es1_dtcad date"
+    cn.Execute "alter table es1 add es1_dtalteracao date"
+    cn.Execute "alter table es1 add es1_comis decimal(7,2) not null"
+    cn.Execute "alter table es1 add es1_codbarra char(20) not null"
+    cn.Execute "alter table es1 add es1_tabpreco int(10) not null"
+    cn.Execute "alter table es1 add es1_opcional int(10) not null"
+    cn.Execute "alter table es1 add es1_compl char(50) not null"
+    cn.Execute "alter table es1 add es1_rastro char(1) not null"
+    cn.Execute "alter table es1 add es1_classe int(10) not null"
+    cn.Execute "alter table es1 add es1_departamento int(10) not null"
+    cn.Execute "alter table es1 add es1_semelhante int(10) not null"
+    cn.Execute "alter table es1 add es1_supervisor int(10) not null"
+    cn.Execute "alter table es1 add cg2_cod int(10) not null"
+    cn.Execute "alter table es1 add cg9_cod int(10) not null"
+    cn.Execute "alter table es1 add es1_tributacao int(10) not null"
+    cn.Execute "alter table es1 add es1_balanca char(1) not null"
+    cn.Execute "alter table es1 add es1_depto char(2) not null"
+    cn.Execute "alter table es1 add es1_etiq char(2) not null"
+    cn.Execute "alter table es1 add es1_composto char(1) not null"
+    cn.Execute "alter table es1 add es1_pesavel char(1) not null"
+    cn.Execute "alter table es1 add es1_margemcom decimal(5,2) not null"
+    cn.Execute "alter table es1 add es1_pratacado decimal(5,2) not null"
+    cn.Execute "alter table es1 add es1_prvarejo decimal(5,2) not null"
+    cn.Execute "alter table es1 add es1_vlbalanca int(10) not null"
+    cn.Execute "alter table es1 add es1_tcbalanca int(10) not null"
+    cn.Execute "alter table es1 add es1_estminimo int(10) not null"
+    cn.Execute "alter table es1 add es1_estmaximo int(10) not null"
+    cn.Execute "alter table es1 add es1_estcritico int(10) not null"
+    cn.Execute "alter table es1 add es1_pesol decimal(5,2) not null"
+    cn.Execute "alter table es1 add es1_pesob decimal(5,2) not null"
+    cn.Execute "alter table es1 add es1_etiq char(5) not null"
+    cn.Execute "alter table es1 add es1_depto char(5) not null"
+    cn.Execute "alter table es1 add es1_quant decimal(16,3)"
+    cn.Execute "alter table es1 add es1_ncm char(8)"
+    cn.Execute "alter table es1 add es1_observacao char(255)"
+    cn.Execute "alter table es1 add es1_imprime_etiqueta char(1)"
+    cn.Execute "alter table es1 add es2_qatu decimal (16,3) default 0 not null"
+    cn.Execute "alter table es1 change es2_qatu es2_qatu decimal (16,3) default 0.000 not null"
+    cn.Execute "update es1 set es2_qatu = 0 where es2_qatu is null"
+    cn.Execute "alter table es1 drop es1_pfcompra"
+    cn.Execute "alter table es1 add es1_prcompra decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_tamanho char (3) default 0 not null"
+    cn.Execute "alter table es1 drop es1_ultprecompra"
+    cn.Execute "alter table es1 add es1_pmz decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_pmzcheio decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_prsugestao decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_prsugestaomedia decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_prcustomedio decimal (16,2) default 0"
+    cn.Execute "alter table es1 add es1_ultmargem decimal (16,2) default 0.00"
+    cn.Execute "alter table es1 add es1_pralterado char (1) default 0"
+    cn.Execute "alter table es1_temp add es1_codbarra char (20)"
+    cn.Execute "alter table es1 add es1_rendimento decimal (16,2) default 0"
+    cn.Execute "update es1 set es1_qembc = 1 where es1_qembc = 0"
+    'tabela es1a - tabela de codigo de barra
+    cSql = "create table es1a (es1_cod int(10) not null, "
+    cSql = cSql & "es1_codbarra char(20) not null, "
+    cSql = cSql & "es1_umvenda char(2) not null, "
+    cSql = cSql & "es1_qtvenda decimal(16,2) not null, "
+    cSql = cSql & "es1_umcompra char(2) not null, "
+    cSql = cSql & "es1_qtcompra decimal(16,2) not null, "
+    cSql = cSql & "es1_num int(10) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela es1b - tabela de promocao
+    cSql = "create table es1b (es1_cod int(10) not null, "
+    cSql = cSql & "es1_num int(10) not null, "
+    cSql = cSql & "es1_dtini date, "
+    cSql = cSql & "es1_dtfim date, "
+    cSql = cSql & "es1_valor decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela es1c - tabela de prod. composto
+    cSql = "create table es1c (es1_cod int(10) not null, "
+    cSql = cSql & "es1_num int(10) not null, "
+    cSql = cSql & "es1_item int(10) not null, "
+    cSql = cSql & "es1_quant decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela es1d - estoque perda e troca
+    cSql = "create table es1d (es1_num int(10) not null, "
+    cSql = cSql & "es1_dtemis date, "
+    cSql = cSql & "es1_motivo int(10) not null, "
+    cSql = cSql & "es1_cod int(10) not null, "
+    cSql = cSql & "cg2_cod int(10) not null, "
+    cSql = cSql & "es1_status int(10) not null, "
+    cSql = cSql & "es1_quant decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela es1f - lista ceasa
+    cSql = "create table es1f (es1_num int(10) not null, "
+    cSql = cSql & "es1_dtemis date, "
+    cSql = cSql & "es1_cod int(10) not null, "
+    cSql = cSql & "es1_quant decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela es41
+    cSql = "create table es41 (es1_cod int(10) not null, "
+    cSql = cSql & "es1_um char(2) not null, "
+    cSql = cSql & "es1_alx char(2) not null, "
+    cSql = cSql & "es1_emb char(2) not null, "
+    cSql = cSql & "es4_quant decimal(16,2) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'movimentaÇao de estoque
+    cn.Execute "alter table esl add esm_nlote char(30) not null"
+    cn.Execute "alter table esl add esm_venclote date"
+    cn.Execute "alter table esl add esl_empenho char(1) default 1 not null"
+    cn.Execute "alter table esl add esl_poder3 char(1) not null"
+    cn.Execute "alter table esl add esl_oper char(1) not null"
+    cn.Execute "alter table esl add esl_origem char(25) not null"
+    cn.Execute "alter table esl add cg1_cod int(10) not null"
+    cn.Execute "alter table esl add esl_vunit decimal(16,5) not null"
+    cn.Execute "alter table esl add esl_ori char(1) not null after esl_oper"
+    cn.Execute "alter table esl add es1_custo decimal(16,2) default 0.00"
+    
+    cn.Execute "alter table esm add esm_venclote date"
+    cn.Execute "alter table esm add esm_bloq char(1) not null"
+    'apontamento de produÇao
+    cn.Execute "alter table esn add esm_nlote char(30) not null"
+    cn.Execute "alter table esn add esm_venclote date"
+    'movimentcao de lote
+    cn.Execute "alter table esp add esm_nlote char(30) not null"
+    cn.Execute "alter table esp add esl_empenho char(1) default 1 not null"
+    cn.Execute "alter table esp add esm_venclote date"
+    cn.Execute "alter table esp add esl_poder3 char(1) not null"
+    cn.Execute "alter table esp add esl_oper char(1) not null"
+    cn.Execute "alter table esp add esl_origem char(25) not null"
+    cn.Execute "alter table esp add cg1_cod int(10) not null"
+    'cabeÇalho de pedido de venda
+    cn.Execute "alter table fa3 add fa3_totfrete char(1) not null"
+    cn.Execute "alter table fa3 add fa3_empresa char(1) default '1' not null"
+    cn.Execute "alter table fa3 add fa3_dentrega date"
+    cn.Execute "alter table fa3 add fa3_vrdfinan decimal(16,5) not null"
+    cn.Execute "alter table fa3 add fa3_situacao int(10) not null"
+    cn.Execute "alter table fa3 add cg3_cod2 int(10) not null"
+    cn.Execute "alter table fa3 add fa3_nordem char(15) not null"
+    'item de pedido de venda
+    cn.Execute "alter table fa4 add fa4_status char(1) default 'e' not null"
+    cn.Execute "alter table fa4 chance fa4_vdesc fa4_vdesc decimal(16,5) not null"
+    cn.Execute "alter table fa4 add esm_nlote char(30) not null"
+    cn.Execute "alter table fa4 add esm_venclote date"
+    cn.Execute "alter table fa4 add cm8_num int(10) not null"
+    'nfs
+    cn.Execute "alter table fa7 add fa7_totfrete char(1) not null"
+    cn.Execute "alter table fa7 add fa7_nordem char(15) not null"
+    cn.Execute "alter table fa7 add cg3_cod int(10) not null"
+    cn.Execute "alter table fa7 add fnb_cod char(10)"
+    cn.Execute "alter table fa7 add pv1_cod char (50)"
+    cn.Execute "alter table fa7 add cc_cod int (4) default 0"
+    'item de nfs
+    cn.Execute "alter table fa8 add esm_nlote char(30) not null"
+    cn.Execute "alter table fa8 add esm_venclote date"
+    cn.Execute "alter table fa8 add fa8_baseicm decimal(16,2) not null"
+    cn.Execute "alter table fa8 add fa8_desconto decimal(16,2) default 0.00"
+    'contas a receber
+    cn.Execute "alter table fn1 add fn1_boleto char(10) not null"
+    cn.Execute "alter table fn1 add fn1_recto char(1) not null"
+    cn.Execute "alter table fn1 add fn1_boleto char(20) not null"
+    cn.Execute "alter table fn1 add fn1_comissao decimal(16,2) not null"
+    cn.Execute "alter table fn1 add fa7_vdesc decimal(16,2) not null"
+    cn.Execute "alter table fn1 add fn1_dtcheque date"
+    cn.Execute "alter table fn1 add fn1_conciliado char(1) default 0 not null"
+    cn.Execute "alter table fn1 drop primary key, add primary key (fn1_num)"
+    cn.Execute "alter table fn1 change fn1_doc fn1_doc char(10)"
+    cn.Execute "alter table fn1 add pv1_cod int (6) not null"
+    cn.Execute "alter table fn1 add cg1_banco_num int (10) default 0"
+    cn.Execute "alter table fn1 add cc_cod int(4) default 0"
+    cn.Execute "alter table fn1 add lot_num int(6) default 0"
+    cn.Execute "alter table fn1 add fn1_empresa int(1) default 1"
+    'contas a pagar
+    cn.Execute "alter table fn2 add fn2_dtcheque date"
+    cn.Execute "alter table fn2 add fn2_portador int(10) not null"
+    cn.Execute "alter table fn2 add cc_cod int(4) default 0"
+    cn.Execute "alter table fn2 add fn2_empresa char(1) default 1 not null"
+    cn.Execute "alter table fn2 change fn2_hist fn2_hist char(120) not null"
+    cn.Execute "alter table fn2 change fnb_cod fnb_cod char(10) not null"
+    cn.Execute "alter table fn2 drop primary key, add primary key (fn2_num)"
+    cn.Execute "alter table fn2 change fn2_doc fn2_doc char(10)"
+    cn.Execute "alter table fn4 add fn4_acres decimal(7,2) not null"
+    cn.Execute "alter table fn4 add fn4_desconto decimal(7,2) default 0"
+    cn.Execute "alter table fn5 add fn5_empresa char(1) not null"
+    cn.Execute "alter table fn5 change cg6_ncheq cg6_ncheq char (10)"
+    cn.Execute "alter table fn5 add pv1_cod int (6) not null"
+    cn.Execute "alter table fnb add fnb_filial char(1) default 1 not null"
+    cn.Execute "alter table fn5 add cc_cod int(4) default 0"
+    cn.Execute "alter table fn2 change fn2_empresa fn2_empresa int(2) default 1 not null"
+    'cadastro de empresa
+    cn.Execute "alter table empresa add emp_autorizacao char(30) not null"
+    cn.Execute "alter table empresa add emp_senha char(6) not null"
+    cn.Execute "alter table empresa add emp_tipoacesso char(100) defaul '0nnnnnnnnnn000000000000000000000000000000000000' not null"
+    'cadastro de usuario
+    cn.Execute "alter table usuario add us_vend int(10) not null"
+    cn.Execute "alter table usuario change us_tipoacesso us_tipoacesso char(255)"
+    'fluxo de caixa
+    cn.Execute "alter table fluxo add sequencia int(10) not null"
+    cn.Execute "alter table fluxo add numero int auto_increment"
+    'log de erros
+    cSql = "create table z_logerros ("
+    cSql = cSql & "sequencia int (3) default '0' auto_increment, "
+    cSql = cSql & "numero char(50) not null, "
+    cSql = cSql & "descricao char(250) not null, "
+    cSql = cSql & "rotina char(50) not null, "
+    cSql = cSql & "origem char(50) not null, "
+    cSql = cSql & "relatorio char(50) not null, "
+    cSql = cSql & "usuario char(50) not null, "
+    cSql = cSql & "tabela char(50) not null, "
+    cSql = cSql & "data date, hora time, "
+    cSql = cSql & "maquina char(50) not null, primary key(sequencia)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    '
+    cSql = "create table impconsumo ("
+    cSql = cSql & "usuario char(3) not null, "
+    cSql = cSql & "produto char(60) not null, "
+    cSql = cSql & "mes_01  char(10) not null, "
+    cSql = cSql & "qmes_01 decimal(16,2) not null, "
+    cSql = cSql & "mes_02  char(10) not null, "
+    cSql = cSql & "qmes_02 decimal(16,2) not null, "
+    cSql = cSql & "mes_03  char(10) not null, "
+    cSql = cSql & "qmes_03 decimal(16,2) not null, "
+    cSql = cSql & "mes_04  char(10) not null, "
+    cSql = cSql & "qmes_04 decimal(16,2) not null, "
+    cSql = cSql & "mes_05  char(10) not null, "
+    cSql = cSql & "qmes_05 decimal(16,2) not null, "
+    cSql = cSql & "mes_06  char(10) not null, "
+    cSql = cSql & "qmes_06 decimal(16,2) not null, "
+    cSql = cSql & "mes_07  char(10) not null, "
+    cSql = cSql & "qmes_07 decimal(16,2) not null, "
+    cSql = cSql & "mes_08  char(10) not null, "
+    cSql = cSql & "qmes_08 decimal(16,2) not null, "
+    cSql = cSql & "mes_09  char(10) not null, "
+    cSql = cSql & "qmes_09 decimal(16,2) not null, "
+    cSql = cSql & "mes_10  char(10) not null, "
+    cSql = cSql & "qmes_10 decimal(16,2) not null, "
+    cSql = cSql & "mes_11  char(10) not null, "
+    cSql = cSql & "qmes_11 decimal(16,2) not null, "
+    cSql = cSql & "mes_12  char(10) not null, "
+    cSql = cSql & "qmes_12 decimal(16,2) not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table impconsumo add grupo int (10) not null"
+    cn.Execute "alter table impconsumo add embalagem char(30) not null"
+    
+    'st - tabelas do sistema
+    cn.Execute "create table st_almoxarifado (tab_cod char(2) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_almoxarifado add tab_valor char(50) not null"
+             
+    cn.Execute "create table st_classe (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_classe add tab_valor char(50) not null"
+       
+    cn.Execute "create table st_cm3situacao (tab_cod int(10) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_cm3situacao add tab_valor char(50) not null"
+          
+    cn.Execute "create table st_departamento (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_departamento add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_embalagem (tab_cod int(10) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_embalagem add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_especiedoc (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_especiedoc add tab_valor char(50) not null"
+             
+    cn.Execute "create table st_familia (tab_cod int(10) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_familia add tab_valor char(50) not null"
+    cn.Execute "insert into st_familia (tab_cod, tab_desc) values (0, 'Não Definido')"
+    
+    cn.Execute "create table st_formapagto (tab_cod int(10) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_formapagto add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_gruposcliente (tab_cod int(10) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_gruposcliente add tab_valor char(50) not null"
+                   
+    cn.Execute "create table st_lista (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_lista add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_local (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_local add tab_valor char(50) not null"
+             
+    cn.Execute "create table st_nivel (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_nivel add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_tamanho (tab_cod char(2) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tamanho add tab_valor char(50) not null"
+
+    cn.Execute "create table st_pagto (tab_cod char(2) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_pagto add tab_valor char(50) not null"
+    cn.Execute "insert into st_pagto (tab_cod, tab_desc) values (0, 'Cheque')"
+    cn.Execute "insert into st_pagto (tab_cod, tab_desc) values (1, 'On Line')"
+    cn.Execute "insert into st_pagto (tab_cod, tab_desc) values (2, 'Bordero')"
+    cn.Execute "insert into st_pagto (tab_cod, tab_desc) values (3, 'Dinheiro')"
+    cn.Execute "insert into st_pagto (tab_cod, tab_desc) values (4, 'Boleta')"
+    
+    'tabela de permissões de acesso de usuários
+    cn.Execute "create table st_permissoes (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_permissoes add tab_valor char(50) not null"
+    cn.Execute "alter table st_permissoes add primary key (tab_cod)"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('77', 'Mapa Fiscal')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('78', 'Cadastros Previsao Diária fluxo de caixa')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('79', 'Rotina de backup do sistema')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('80', 'Configuração de impressão de nf saída')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('81', 'Cadastro de carteiras')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('82', 'Fechamento de caixa tesouraria')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('83', 'Acréscimo ao valor em pedido de venda')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('84', 'Cadastro de Cheques no Contas a Receber')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('85', 'Lotear Cheques')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('86', 'Cadastro de Centro de Custo')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('87', 'Troca de Produto')"
+    cn.Execute "insert into st_permissoes (tab_cod, tab_desc) values ('88', 'Relatórios de Produtos')"
+    
+    cn.Execute "create table st_portador (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_portador add tab_valor char(50) not null"
+                
+    cn.Execute "create table st_status (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_status add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_semelhante (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_semelhante add tab_valor char(50) not null"
+       
+    cn.Execute "create table st_seq (seq_data date,seq_arq char(20) not null, seq_num int(5))"
+    cn.Execute "alter  table st_seq add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_supervisor (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_supervisor add tab_valor char(50) not null"
+             
+    cn.Execute "create table st_tipodoc (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tipodoc add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_tipofluxo (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tipofluxo add tab_valor char(50) not null"
+       
+    cn.Execute "create table st_tipomovto (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tipomovto add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_tipoproduto (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tipoproduto add tab_valor char(50) not null"
+       
+    cn.Execute "create table st_tipotitulo (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_tipotitulo add tab_valor char(50) not null"
+    cn.Execute "alter table st_tipotitulo change tab_cod tab_cod int (6)"
+        
+    cn.Execute "create table st_troco (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_troco add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_um (tab_cod char(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_um add tab_valor char(50) not null"
+    
+    cn.Execute "create table st_motivocheque (tab_cod int(6) not null, tab_desc char(50) not null, primary key(tab_cod))"
+    cn.Execute "alter  table st_motivocheque add tab_valor char(50) not null"
+    
+    'cadastro de operador
+    cSql = "create table operador ("
+    cSql = cSql & "codigo int (10) default '0', "
+    cSql = cSql & "nome char (50) not null, "
+    cSql = cSql & "senha char(10) not null, "
+    cSql = cSql & "permissao char (1) not null, "
+    cSql = cSql & "nivel int(10) not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'cadastro de icms
+    cSql = "create table icms ("
+    cSql = cSql & "codigo int (10) default '0', "
+    cSql = cSql & "codpdv char (50) not null, "
+    cSql = cSql & "descricao char(100) not null, "
+    cSql = cSql & "valor decimal(16,2) not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'cadastro de finalizadora
+    cSql = "create table finalizadoras ("
+    cSql = cSql & "codigo int (10) default '0', "
+    cSql = cSql & "nome char (50) not null, "
+    cSql = cSql & "impressora char (50) not null, "
+    cSql = cSql & "troco int(10) not null, "
+    cSql = cSql & "vlmaximo decimal(16,2) not null, "
+    cSql = cSql & "trocomaximo decimal(16,2) not null, "
+    cSql = cSql & "autentificacao decimal(16,2) not null, "
+    cSql = cSql & "autorizacao char(1) not null, "
+    cSql = cSql & "cheque char(1) not null, "
+    cSql = cSql & "legenda char (50) not null, "
+    cSql = cSql & "gaveta char(1) not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table finalizadoras change legenda legenda char(50) not null"
+    cn.Execute "alter table finalizadoras add vendaprazo char(1) not null"
+    cn.Execute "alter table finalizadoras add t_tef char(1) not null"
+    cn.Execute "alter table finalizadoras add dig_valor char(1) not null"
+       
+    cSql = "create table impgiro (es1_cod int(10) not null, "
+    cSql = cSql & "giro_01 decimal(16,2) not null , "
+    cSql = cSql & "cgk_codlinha int (10) not null, "
+    cSql = cSql & "cgk_capacidade int (10) not null, "
+    cSql = cSql & "cgk_ciac char(50) not null) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    'tabela reducao (importaçao de dados lz)
+    cSql = "create table reducao ("
+    cSql = cSql & "colz char (6), "
+    cSql = cSql & "caixa char (3), "
+    cSql = cSql & "data date, "
+    cSql = cSql & "gti decimal (16,2), "
+    cSql = cSql & "vcancelado decimal(16,2), "
+    cSql = cSql & "ncanccupom int (4), "
+    cSql = cSql & "vdesconto decimal(16,2), "
+    cSql = cSql & "ndesconto int(4), "
+    cSql = cSql & "reducoes int (4), "
+    cSql = cSql & "vbruta decimal (16,2), "
+    cSql = cSql & "vliquida decimal (16,2), "
+    cSql = cSql & "codtributo char (8), "
+    cSql = cSql & "vtributo decimal (16,2), "
+    cSql = cSql & "gtf decimal (16,2), "
+    cSql = cSql & "cooi int (6), "
+    cSql = cSql & "coof int (6), "
+    cSql = cSql & "nci int (6), "
+    cSql = cSql & "ncf int (6), "
+    cSql = cSql & "ncancitem int (4), "
+    cSql = cSql & "vcancitem decimal (16,2)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela temp para mapa de reducao
+    cSql = "create table reducao_temp ("
+    cSql = cSql & "colz char(6), "
+    cSql = cSql & "data date, "
+    cSql = cSql & "caixa char (3), "
+    cSql = cSql & "cooi int (6), "
+    cSql = cSql & "coof int (6), "
+    cSql = cSql & "vendadia decimal(16,2), "
+    cSql = cSql & "vdesconto decimal(16,2), "
+    cSql = cSql & "vliquida decimal (16,2), "
+    cSql = cSql & "substituicao decimal (16,2), "
+    cSql = cSql & "isento decimal (16,2), "
+    cSql = cSql & "t01 decimal (16,2), "
+    cSql = cSql & "t02 decimal (16,2), "
+    cSql = cSql & "t03 decimal (16,2), "
+    cSql = cSql & "t04 decimal (16,2), "
+    cSql = cSql & "t05 decimal (16,2), "
+    cSql = cSql & "contador int (4), "
+    cSql = cSql & "vimposto decimal (16,2)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela er_lz - lz nÃo importado por erro no arquivo
+    'csql = "create table er_lz ("
+    'csql = csql & "er_lz char (13) not null, "
+    'csql = csql & "er_campo char (15) not null) ENGINE=MyISAM "
+    'cn.Execute cSql: doevents
+    cn.Execute "drop table er_lz"
+    'tabela de transportadoras exclusÃo caso exista
+    cn.Execute "drop table transportadora"
+    'tabelas de pedido de venda
+    cSql = "create table pv1 ("
+    cSql = cSql & "pv1_cod int (8), "
+    cSql = cSql & "pv1_data date, "
+    cSql = cSql & "cg1_cod int (6), "
+    cSql = cSql & "cgv_cod int (6), "
+    cSql = cSql & "fn4_cod int (6), "
+    cSql = cSql & "pv1_total decimal (16,2), "
+    cSql = cSql & "pv1_status char (50), "
+    cSql = cSql & "pv1_obs char (255), primary key(pv1_cod)) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table pv1 add pv1_tipopr int(1)"
+    cn.Execute "alter table pv1 change vnd_cod cgv_cod int(6)"
+    cn.Execute "alter table pv1 add pv1_condicional char(1) default 0"
+    cn.Execute "alter table pv1 add pv1_vista decimal (16,2) default 0.00"
+    cn.Execute "alter table pv1 add pv1_credito decimal (16,2) default 0.00"
+    'tabela de itens de pedido de venda
+    cSql = "create table pv2 ("
+    cSql = cSql & "pv1_cod int (8), "
+    cSql = cSql & "es1_cod int (6), "
+    cSql = cSql & "pv2_vunit decimal (16,2), "
+    cSql = cSql & "pv2_quant decimal (10,2), "
+    cSql = cSql & "pv2_desconto decimal (5,2), "
+    cSql = cSql & "pv2_totitem decimal (16,2)) ENGINE=MyISAM "
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table pv2 add pv2_nitem int(3) after pv1_cod"
+    cn.Execute "alter table pv2 add fa7_num int(6)"
+    cn.Execute "alter table pv2 add pv2_acrescimo decimal (5,2) default 0.00 after pv2_desconto"
+    'tabela de condicoes de pagamento para pedido de venda
+    cSql = "create table pv1_cond("
+    cSql = cSql & "pv1_cod int (6) not null, "
+    cSql = cSql & "pv1_parc int (6) not null, "
+    cSql = cSql & "pv1_venc date not null, "
+    cSql = cSql & "pv1_valor decimal (16,2) default 0.00 not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table pv1_cond add fn1_num int(10)"
+    'tabela de vendedores
+    cn.Execute "create table cgv (cgv_cod int (6), primary key(cgv_cod)) ENGINE = MyISAM"
+    cn.Execute "alter table cgv add cgv_nome char(50)"
+    cn.Execute "alter table cgv add cgv_cpf char(20)"
+    cn.Execute "alter table cgv add cgv_id char(20)"
+    cn.Execute "alter table cgv add cgv_end char(50)"
+    cn.Execute "alter table cgv add cgv_uf char(2)"
+    cn.Execute "alter table cgv add cgv_compl char(50)"
+    cn.Execute "alter table cgv add cgv_bairro char(50)"
+    cn.Execute "alter table cgv add cgv_cidade char(50)"
+    cn.Execute "alter table cgv add cgv_cep char(10)"
+    cn.Execute "alter table cgv add cgv_dtcad date"
+    cn.Execute "alter table cgv add cgv_tel char(20)"
+    cn.Execute "alter table cgv add cgv_cel char(20)"
+    cn.Execute "alter table cgv add cgv_email char(50)"
+    cn.Execute "alter table cgv add cgv_obs char(255)"
+    'tabela de comissoes dos vendedores
+    cn.Execute "create table cgcom (cgv_cod int (6) not null) ENGINE = MyISAM"
+    cn.Execute "alter table cgcom add tab_cod int(10) not null"
+    cn.Execute "alter table cgcom add valor decimal(5,2) not null"
+    'tabela de cheques
+    cSql = "create table cheque (emp_cod int (10), "
+    cSql = cSql & "chq_banco int (10), "
+    cSql = cSql & "chq_agencia int (10), "
+    cSql = cSql & "chq_conta int (10), "
+    cSql = cSql & "chq_numero_chq int (10), "
+    cSql = cSql & "chq_data_emissao date, "
+    cSql = cSql & "chq_data_vencimento date, "
+    cSql = cSql & "chq_motivo int (2) default 0 not null, "
+    cSql = cSql & "chq_caixa int (3), "
+    cSql = cSql & "chq_operador int (14), "
+    cSql = cSql & "chq_lote int (6), "
+    cSql = cSql & "chq_valor decimal (16,2), "
+    cSql = cSql & "cg1_cod int (10), "
+    cSql = cSql & "tab_cod int (3) default 0 not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cheque add chq_titular char (50)"
+    cn.Execute "alter table cheque drop chq_motivo"
+    'tabelas de cotaÇÃo
+    cSql = "create table cotacao (ctc_cod int (6), "
+    cSql = cSql & "ctc_dtinicio date, "
+    cSql = cSql & "ctc_hrinicio time, "
+    cSql = cSql & "ctc_dtfim date, "
+    cSql = cSql & "ctc_hrfim time, primary key (ctc_cod)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'fornecedores de cotaçao
+    cSql = "create table cotacao_forn (ctc_cod int (6), "
+    cSql = cSql & "cg2_cod int (6), "
+    cSql = cSql & "es1_cod int (6), "
+    cSql = cSql & "ctc_preco decimal (16,2)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'produtos de cotacao
+    cSql = "create table cotacao_es1 (ctc_cod int (6), "
+    cSql = cSql & "es1_cod int (6), "
+    cSql = cSql & "ctc_um2 char (2), "
+    cSql = cSql & "ctc_qemb int (5), "
+    cSql = cSql & "ctc_quant decimal (10,3)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table cotacao_es1 add ctc_item int (4)"
+    'temp para cotacao
+    cSql = "create table cotacao_temp (ctc_cod int (6), "
+    cSql = cSql & "es1_cod int (6), "
+    cSql = cSql & "cg2_cod int (6), "
+    cSql = cSql & "ctc_preco decimal (16,2)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela de conhecimento
+    cSql = "create table conhecimento (con_cod int (6), "
+    cSql = cSql & "con_doc int (10), "
+    cSql = cSql & "con_emissao date, "
+    cSql = cSql & "con_totalfrete decimal (16,2), "
+    cSql = cSql & "con_baseicms decimal (16,2), "
+    cSql = cSql & "con_icms int (6), "
+    cSql = cSql & "con_vicms decimal (16,2), "
+    cSql = cSql & "con_transportadora int (6), "
+    cSql = cSql & "con_status char (15), primary key (con_cod)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela de faturas de conhecimento
+    cSql = "create table conhecimento_fat (fat_num int (6), "
+    cSql = cSql & "fat_transportadora int (6), "
+    cSql = cSql & "fat_data date, "
+    cSql = cSql & "fat_doc int (10), "
+    cSql = cSql & "fat_valor decimal (16,2), "
+    cSql = cSql & "fat_status char (15), primary key (fat_num)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela de fidelidade
+    cSql = "create table fidelidade (fdl_cod int (10), "
+    cSql = cSql & "fdl_cupom char (6), "
+    cSql = cSql & "fdl_valor decimal (16,2), "
+    cSql = cSql & "cg1_cod int (6), "
+    cSql = cSql & "fdl_data date, "
+    cSql = cSql & "fdl_hora datetime, "
+    cSql = cSql & "fdl_pontos decimal (15,2), primary key (fdl_cod)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table fidelidade add fdl_cupom char (6) after fdl_cod"
+    cn.Execute "alter table fidelidade add fdl_data date after cg1_cod"
+    cn.Execute "alter table fidelidade add fdl_hora datetime after fdl_data"
+    cn.Execute "alter table fidelidade add log_caixa int (3)"
+    'tabela de premios
+    cSql = "create table premios_fdl (prm_cod int (6), "
+    cSql = cSql & "prm_desc char (50), "
+    cSql = cSql & "prm_pontos decimal (16,2), "
+    cSql = cSql & "prm_data date, "
+    cSql = cSql & "prm_hora datetime, primary key (prm_cod)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'tabela de resgate de premios
+    cSql = "create table resgate_fdl (cg1_cod int (6), "
+    cSql = cSql & "prm_cod int (6), "
+    cSql = cSql & "rsg_pontos decimal (16,2), "
+    cSql = cSql & "rsg_data date, "
+    cSql = cSql & "rsg_hora datetime) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table resgate_fld drop field rsg_cod"
+    'tabela temp para criar nf a partir de pedidos
+    cn.Execute "create table fa7_temp (pv1_cod int (10)) ENGINE=MyISAM"
+    'tabela temp para extrato de caixa banco
+    cSql = "create table fn5_extrat(fn5_data date, "
+    cSql = cSql & "fn5_hist char (50), "
+    cSql = cSql & "fn5_deb decimal (16,2), "
+    cSql = cSql & "fn5_cre decimal (16,2), "
+    cSql = cSql & "fn5_saldo decimal (16,2)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table fn5_extrat add fn5_conciliado char(1)"
+    'excluir tabela fn5_extrato
+    cn.Execute "drop table fn5_extrato"
+    cn.Execute "alter table fn5_extrat add fn5_conciliado char(1)"
+    
+    'atualizacao da tabela cgh - cfop
+    '(retirada dos campos nao necessários)
+    'criaçao dos novos campos
+    cn.Execute "alter table cgh drop cgh_icm"
+    cn.Execute "alter table cgh drop cgh_ipi"
+    cn.Execute "alter table cgh drop cgh_credicm"
+    cn.Execute "alter table cgh drop cgh_credipi"
+    cn.Execute "alter table cgh drop cgh_duplic"
+    cn.Execute "alter table cgh drop cgh_baseicm"
+    cn.Execute "alter table cgh drop cgh_baseipi"
+    cn.Execute "alter table cgh drop cgh_poder3"
+    cn.Execute "alter table cgh drop cgh_lficm"
+    cn.Execute "alter table cgh drop cgh_lfipi"
+    cn.Execute "alter table cgh drop cgh_destaca"
+    cn.Execute "alter table cgh drop cgh_indice"
+    cn.Execute "alter table cgh drop cgh_compl"
+    cn.Execute "alter table cgh drop cgh_ipifrete"
+    cn.Execute "alter table cgh drop cgh_iss"
+    cn.Execute "alter table cgh drop cgh_lfiss"
+    cn.Execute "alter table cgh drop cgh_nrlivro"
+    cn.Execute "alter table cgh drop cgh_consumo"
+    cn.Execute "alter table cgh drop cgh_formula"
+    cn.Execute "alter table cgh drop cgh_agreg"
+    cn.Execute "alter table cgh drop cgh_incsol"
+    cn.Execute "alter table cgh drop cgh_calcst"
+    cn.Execute "alter table cgh drop cgh_comis"
+    cn.Execute "alter table cgh drop cgh_totfrete"
+    cn.Execute "alter table cgh drop cgh_ipibase"
+    cn.Execute "alter table cgh drop cgh_uprc"
+    cn.Execute "alter table cgh drop cgh_ciac"
+    cn.Execute "alter table cgh add cgh_fiscal char(1)"
+    cn.Execute "alter table cgh add cgh_finan char(1)"
+    cn.Execute "alter table cgh add cgh_custo char(1)"
+    'tabela de dias - fluxo de caixa
+    cSql = "create table dias_fluxo("
+    cSql = cSql & "dia int (2), "
+    cSql = cSql & "valor decimal (16,2), primary key (dia)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table dias_fluxo add filial char (1)"
+    cn.Execute "alter table dias_fluxo drop primary key)"
+    cSql = "create table es1_giro("
+    cSql = cSql & "num int (10), "
+    cSql = cSql & "es1_cod int (10), "
+    cSql = cSql & "quant decimal (10,3), "
+    cSql = cSql & "data date, "
+    cSql = cSql & "origem char (1), "
+    cSql = cSql & "operacao char (1), primary key(num)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "drop table es1_giro"
+    'tabela para configuraÇÃo de impressao de nf de saÍda
+    cSql = "create table config_nfs("
+    cSql = cSql & "nfs_tipox decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_tipoy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_naturezax decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_naturezay decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cfopx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cfopy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ieemix decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ieemiy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_nomedestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_nomedesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_docdestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_docdesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dtemisx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dtemisy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_enddestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_enddesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_bairrodestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_bairrodesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dtsaidax decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dtsaiday decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cepdestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cepdesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cidadedestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cidadedesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_fonedestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_fonedesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ufdestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ufdesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_iedestx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_iedesty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_codprodx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_codprody decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_descx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_descy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_clfx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_clfy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_stx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_sty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_umx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_umy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_quantx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_quanty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_prunitx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_prunity decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_prtotalx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_prtotaly decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_aliqicmsx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_aliqicmsy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_aliqipix decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_aliqipiy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlipix decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlipiy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_baseicmsx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_baseicmsy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlicmsx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlicmsy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_basesubstx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_basesubsty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlsubstx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlsubsty decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totprodx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totprody decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlfretex decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlfretey decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlsegurox decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_vlseguroy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_despesasx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_despesasy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totipix decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totipiy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totnfx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_totnfy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_nometransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_nometransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_tipofretex decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_tipofretey decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_placax decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_placay decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ufplacax decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ufplacay decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_doctransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_doctransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_endtransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_endtransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cidadetransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_cidadetransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_uftransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_uftransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ietransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_ietransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_quanttransx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_quanttransy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_especiex decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_especiey decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_marcax decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_marcay decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_numerox decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_numeroy decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_pesobx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_pesoby decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_pesolx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_pesoly decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dadosx decimal (4,2)  default 0.00 not null, "
+    cSql = cSql & "nfs_dadosy decimal (4,2) default 0.00 not null) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table config_nfs add nfs_sigla int (1) default 1"
+    cn.Execute "alter table config_nfs add nfs_hora int (1) default 0"
+    cn.Execute "alter table config_nfs add nfs_pagto int (1) default 1"
+    'tabela de carteiras
+    cSql = "create table carteiras("
+    cSql = cSql & "codigo int (6), "
+    cSql = cSql & "nome char (50), "
+    cSql = cSql & "tipo char (1), "
+    cSql = cSql & "taxa decimal (10,2), "
+    cSql = cSql & "tipovencimento char(1), "
+    cSql = cSql & "prazo int (2), "
+    cSql = cSql & "tab_cod int(6), "
+    cSql = cSql & "fnb_cod char(10), primary key(codigo)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cn.Execute "alter table carteiras add financeiro int (1) default 0"
+    cn.Execute "alter table carteiras add cc_cod int (10) default 0"
+    'tabela Centro de Custo
+    cSql = "create table centrocusto ("
+    cSql = cSql & "cc_cod int (4), "
+    cSql = cSql & "cc_desc char(50), primary key (cc_cod)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'Tabela de Lotes
+    cSql = "create table lote ("
+    cSql = cSql & "lot_num int (10), "
+    cSql = cSql & "lot_data date, "
+    cSql = cSql & "lot_deposito date, "
+    cSql = cSql & "cg6_cod int (10), "
+    cSql = cSql & "lot_total decimal (16,2), "
+    cSql = cSql & "lot_status int (1) default 0, primary key (lot_num)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'Tabela de Itens de Lote
+    cSql = "create table lote_item ("
+    cSql = cSql & "lot_num int (10), "
+    cSql = cSql & "cg1_cod int (10), "
+    cSql = cSql & "fn1_num int (10)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    'Tabela de Tesouraria
+    cSql = "create table tesouraria ("
+    cSql = cSql & "tes_num int (10), "
+    cSql = cSql & "tes_data date, "
+    cSql = cSql & "tes_fechamento date, "
+    cSql = cSql & "operador int (6), "
+    cSql = cSql & "caixa int (3), "
+    cSql = cSql & "total_venda decimal (16,2), "
+    cSql = cSql & "quebra decimal (16,2), "
+    cSql = cSql & "total_carteiras decimal (16,2), primary key (tes_num)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+    cSql = "create table tes_itens ("
+    cSql = cSql & "tes_num int (10), "
+    cSql = cSql & "carteira int (10), "
+    cSql = cSql & "valor decimal (16,2), "
+    cSql = cSql & "fn1_num int(10)) ENGINE=MyISAM"
+    cn.Execute cSql: DoEvents
+
+
+
+
+
+
+
+    MsgBox "Atualização Concluída", vbInformation, "SGLinx Atenção"
+    Screen.MousePointer = 0
+End Sub
+
+Public Sub Atualiza_Parametros()
+On Error Resume Next
+    'Lancamento dos Dados na Tabela Parametro
+    If LerNome("parametro", "pr_chave = 'EMP_PERMIS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'EMP_PERMIS','C','Permissao da Empresa','002')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FAT_SERIE'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FAT_SERIE','C','Serie','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'EST_DTFECHA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'EST_DTFECHA','D','DATA FECHAMENTO','01/01/04')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_NATCOMP'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_NATCOMP','C','Compartilhamento de Natureza','S')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CAIXA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CAIXA','N','NUMERO DO CAIXA INTERNO','6')"
+    End If
+    If LerNome("parametro", "pr_chave = 'BALANCA_CAMINHO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'BALANCA_CAMINHO','C','Caminho para Exportacao do Arquivo de Balança','C:/SGlinx/')"
+    End If
+    If LerNome("parametro", "pr_chave = 'BALANCA_TIPO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'BALANCA_TIPO','C','Tipo da Balança, Define geraçao do TXT','TOLEDO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FAT_MODELOU'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FAT_MODELOU','C','NOTA FISCAL SERIE UNICA','U')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FAT_MODELO1'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FAT_MODELO1','C','NOTA FISCAL SERIE 1','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'COD_BARRAS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'COD_BARRAS','C','VERIFICA SE SISTEMA TRABALHA COM CÓDIGOS DE BARRAS ALFANUMÉRICOS','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PEDIDO_BAIXAESTOQUE'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PEDIDO_BAIXAESTOQUE','C','VERIFICA SE BAIXA DO ESTOQUE É FEITA PELO PEDIDO','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'ESTOQUE_NEGATIVO_PD'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'ESTOQUE_NEGATIVO_PD','C','Verifica se Sistema trabalha com estoque nevativo no Pedido de Venda','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_JUROS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_JUROS','C','Informa se o sistema trata juros automatico','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PONTOS_FIDELIDADE'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PONTOS_FIDELIDADE','M','INFORMA QUANTOS PONTOS VALEM 1 REAL','2')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_QVIAS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_QVIAS','N','Quantidade de vias a serem impressas de Pedido de Venda','4')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_VIAS1'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_VIAS1','C','Descrição de Vias de Pedido de Venda','Cliente')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_EMPRESA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_EMPRESA','C','Informa o nome da empresa a ser impresso no Pedido de Venda','Nome da Empresa')"
+    End If
+    If LerNome("parametro", "pr_chave = 'VALIDA_CPF'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'VALIDA_CPF','C','Sistema faz validação de CPF','SIM')"
+    End If
+    If LerNome("parametro", "pr_chave = 'VINC_FAM_DEPTO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'VINC_FAM_DEPTO','C','Sistema vincula Famílias e Departamentos de Produto','SIM')"
+    End If
+    If LerNome("parametro", "pr_chave = 'GIRO_PRODUTO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'GIRO_PRODUTO','N','Prazo em dias para cálculo de Giro de Venda no Negociação','60')"
+    End If
+    If LerNome("parametro", "pr_chave = 'BKP_ORIGEM_BANCO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'BKP_ORIGEM_BANCO','C','Diretório de Origem do Banco de Dados','c:/mysql/data/sglinx')"
+    End If
+    If LerNome("parametro", "pr_chave = 'BKP_DESTINO_BANCO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'BKP_DESTINO_BANCO','C','Diretório de Destino de Backup do Banco de Dados','c:/sglinx/backup')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CARENCIA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CARENCIA','N','Carência para Cáculos de Juros','7')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_VALORJUROS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_VALORJUROS','N','Porcentagem de Juros a ser aplicada','2')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_GERAFINANCEIRO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_GERAFINANCEIRO','C','Informa se o sistema gera Contas a Receber a partir de um Pedido','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_NATUREZA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_NATUREZA','C','Informa qual a Natureza Padrão utilizada para Pedido gerar Contas a Receber','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_PRPADRAO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_PRPADRAO','C','Informa qual o Preço Padrão para o Pedido','VAREJO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_TIPOTITULO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_TIPOTITULO','C','Informa qual o Tipo de Documento Padrão para o Pedido','3')"
+    End If
+    If LerNome("parametro", "pr_chave = 'DESPESA_OPERACIONAL'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'DESPESA_OPERACIONAL','N','Informa qual a porcentagem a ser aplicada no Custo de Produto como Despesas Operacionais','5')"
+    End If
+    If LerNome("parametro", "pr_chave = 'GERA_CODBARRA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'GERA_CODBARRA','C','Sistema Gera Código de Barras a partir do Codigo Interno','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_AGLUTINA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_AGLUTINA','C','Informa qual banco o sistema deve usar ao Aglutinar Títulos','99')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_AGLUTINA_TIPO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_AGLUTINA_TIPO','C','Informa como o sistema fará Aglutinação de Títulos: 1 - Todos do Cliente; 2 - Somente o Selecionado.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CARENCIA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CARENCIA','N','Carencia em dias para Calculo de Juros no Contas a Receber','7')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PC_QVIAS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PC_QVIAS','N','Quantidade de vias a serem impressas de Pedido de Compra','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PC_VIAS1'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PC_VIAS1','C','Descrição de Vias de Pedido de Venda','Fornecedor')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_TIPO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_TIPO','N','Tipo de impressão de Pedido: 1 - Folha A4. 2 - Reduzido','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_ACRESCIMO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_ACRESCIMO','C','Informa se Sistema trabalha com Acréscimo no valor do Pedido de Venda','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_MENSAGEMDEBITOS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_MENSAGEMDEBITOS','C','Informa se Sistema exibe mensagem de débito do cliente no Pedido de Venda','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'REL_DEPTO_FAMILIA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'REL_DEPTO_FAMILIA','C','Informa se Sistema trabalha relatórios de Famílias e Departamentos utilizando Data Environment','SIM')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_CONDICIONAL'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_CONDICIONAL','C','Informa se Sistema trabalha com Vendas Ccondicionais no Pedido de Venda','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_PRAZOCONDICIONAL'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_PRAZOCONDICIONAL','N','Prazo em Dias para lançamento de Pedidos Condicionais no Financeiro','6')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_BANCO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_BANCO','N','Informa ao sistema qual banco deve baixar parcelas à vista de Pedido de Venda','99')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_PRAZOBAIXA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_PRAZOBAIXA','N','Prazo em Dias para alterar o status do Pedido de Aberto para Lancado.','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_SALTOIMPRESSAO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_SALTOIMPRESSAO','N','Quantidade de linhas a saltar no fim da Impressão para ajuste de Avanço.','5')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PC_PMZ'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PC_PMZ','N','Informa se sistema trabalha com PMZ no Pedido de Compra.','SIM')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PC_ATUALIZAPRVAREJO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PC_ATUALIZAPRVAREJO','N','Informa se sistema atualiza o Preço de Venda Varejo a partir do Pedido de Compra.','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FAT_ITENS_NF'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FAT_ITENS_NF','N','Quantidade de Íens que a NF imprime.','25')"
+    End If
+    If LerNome("parametro", "pr_chave = 'BALANCA_DIGITO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'BALANCA_DIGITO','C','Indica se ira exporta o digito verificador do codigo de barras','SIM')"
+    End If
+    If LerNome("parametro", "pr_chave = 'NATUREZA_ENTRADA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'NATUREZA_ENTRADA','C','Dígito Inicial que indica Natureza de Entrada','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'NATUREZA_SAIDA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'NATUREZA_SAIDA','C','Dígito Inicial que indica Natureza de Saída','2')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CHQ_NATUREZA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CHQ_NATUREZA','C','Natureza usada na Entrada de Cheques no Financeiro.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CHQ_PORTADOR'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CHQ_PORTADOR','N','Portador usado na Entrada de Cheques no Financeiro.','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CHQ_EMPRESA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CHQ_EMPRESA','N','Empresa usada na Entrada de Cheques no Financeiro.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CHQ_CENTROCUSTO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CHQ_CENTROCUSTO','N','Centro de Custo usado na Entrada de Cheques no Financeiro.','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_CHQ_TITULO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_CHQ_TITULO','N','Tipo de Título usado na Entrada de Cheques no Financeiro.','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'CTC_ORDEM'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'CTC_ORDEM','C','Ordem dos ítens na impressão de Cotaçoes: 1-Nr. Ítem, 2-Alfabética','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_LIST'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_LIST','C','Modo de exibição dos Pedidos de Venda: 1 - Completo, 2 - Sem List','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_LOTE_CARENCIA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_LOTE_CARENCIA','N','Carência em dias para baixa dos cheques Loteados.','2')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_CENTROCUSTO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_CENTROCUSTO','N','Centro de Custo padrão para Pedido de Venda.','0')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_CLIENTE'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_CLIENTE','N','Cliente padrão para Trocas.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PC_EMBALAGEN'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PC_EMBALAGEN','N','Embalagem usada no Negociaçao: 1-Volume, 2-Unidade.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_ORDENALIST'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_ORDENALIST','N','Ordenaçao do List no Contas a Receber: 1-Por Data, 2-Por Cliente','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_MARCARNOVOS'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_MARCARNOVOS','C','Marcação no Financeiro de Títulos Novos.','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'FIN_ATUALIZACHEQUES'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'FIN_ATUALIZACHEQUES','C','Sistema atualiza os Cheques Financeiros na Inicialização.','NAO')"
+    End If
+    If LerNome("parametro", "pr_chave = 'COT_TIPOIMPRESSAO'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'COT_TIPOIMPRESSAO','C','Tipo de impressão de Cotaçao (Lista Fornecedores): 1-Data Report, 2-Impressora.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PD_CONDICOES'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PD_CONDICOES','N','Condições de Pagamento do Pedido de Venda: 1-Todas, 2-Somente PV.','1')"
+    End If
+    If LerNome("parametro", "pr_chave = 'TES_CLIENTE'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'TES_CLIENTE','N','Código do Cliente Padrão para Lançamento da Tesouraria.','999999')"
+    End If
+    If LerNome("parametro", "pr_chave = 'PROD_MARGEMFAMILIA'", "pr_chave") = "" Then
+        nAux = ProxCod("pr_cod", "parametro")
+        cn.Execute "insert into parametro (pr_cod, pr_chave, pr_tipo, pr_desc, pr_valor) values (" & nAux & ",'PROD_MARGEMFAMILIA','C','Sistema trabalha com Margem de Comercialização por Família.','NAO')"
+    End If
+
+    MsgBox "Atualização Concluída.", vbInformation, "SGLinx Atenção"
+    Screen.MousePointer = 0
+End Sub
+
+Sub Requisicao(n_ESL_NUM As Long, n_ESL_ITEM As Integer, d_ESL_EMIS As Date, n_CGI_COD As Integer, _
+               n_ESL_DOC As String, n_ESL_ITDOC As Integer, n_ESL_OP As Integer, n_ES1_COD As Long, _
+               c_Es1_Alx As String, c_ES1_UM As String, n_ESL_QTD As Currency, _
+               c_ESL_CIAC As String, c_Oper As String, c_Ori As String, n_FA7_NUM As Long, _
+               c_FA7_SERIE As String, n_CMD_NUM As Long, n_FA3_NUM As Long, c_ESM_NLOTE As String, _
+               c_ES1_RASTRO As String, c_GeraESP As String, d_ESM_VENCLOTE As Date, c_CGH_PODER3 As String, _
+               n_CG1_COD As Long, c_ESL_ORIGEM As String)
+On Error GoTo Err_Banco
+    Dim rsRequi     As New ADODB.Recordset
+    ReDim aCampos(27, 1)
+    aCampos(0, 0) = "ESL_NUM":        aCampos(0, 1) = n_ESL_NUM
+    aCampos(1, 0) = "ESL_ITEM":       aCampos(1, 1) = n_ESL_ITEM
+    aCampos(2, 0) = "ESL_EMIS":       aCampos(2, 1) = Formata_Data(d_ESL_EMIS, "D")
+    aCampos(3, 0) = "CGI_COD":        aCampos(3, 1) = n_CGI_COD
+    aCampos(4, 0) = "ESL_DOC":        aCampos(4, 1) = "'" & n_ESL_DOC & "'"
+    aCampos(5, 0) = "ESL_ITDOC":      aCampos(5, 1) = n_ESL_ITDOC
+    aCampos(6, 0) = "ESL_OP":         aCampos(6, 1) = n_ESL_OP
+    aCampos(7, 0) = "ES1_COD":        aCampos(7, 1) = n_ES1_COD
+    aCampos(8, 0) = "ES1_ALX":        aCampos(8, 1) = "'" & c_Es1_Alx & "'"
+    aCampos(9, 0) = "ES1_UM":         aCampos(9, 1) = "'" & c_ES1_UM & "'"
+    aCampos(10, 0) = "ESL_QTD":       aCampos(10, 1) = gVgPt(n_ESL_QTD)
+    aCampos(11, 0) = "FNB_COD":       aCampos(11, 1) = "' '"
+    aCampos(12, 0) = "FA7_NUM":       aCampos(12, 1) = n_FA7_NUM
+    aCampos(13, 0) = "FA7_SERIE":     aCampos(13, 1) = "'" & c_FA7_SERIE & "'"
+    aCampos(14, 0) = "CMD_NUM":       aCampos(14, 1) = n_CMD_NUM
+    aCampos(15, 0) = "FA3_NOTA":      aCampos(15, 1) = n_FA3_NUM
+    aCampos(16, 0) = "ESL_CIAC":      aCampos(16, 1) = "'" & c_ESL_CIAC & "'"
+    aCampos(17, 0) = "ESM_NLOTE":     aCampos(17, 1) = "'" & c_ESM_NLOTE & "'"
+    aCampos(18, 0) = "ES1_RASTRO":    aCampos(18, 1) = "'" & c_ES1_RASTRO & "'"
+    aCampos(19, 0) = "ESL_EMPENHO":   aCampos(19, 1) = "'" & c_GeraESP & "'"
+    aCampos(20, 0) = "ESM_VENCLOTE":  aCampos(20, 1) = Formata_Data(d_ESM_VENCLOTE, "D")
+    aCampos(21, 0) = "ESL_PODER3":    aCampos(21, 1) = "'" & c_CGH_PODER3 & "'"
+    aCampos(22, 0) = "CG1_COD":       aCampos(22, 1) = n_CG1_COD
+    aCampos(23, 0) = "ESL_OPER":      aCampos(23, 1) = "'" & c_Oper & "'"
+    aCampos(24, 0) = "ESL_ORI":       aCampos(24, 1) = "'" & c_Ori & "'"
+    aCampos(25, 0) = "ESL_ORIGEM":    aCampos(25, 1) = "'" & c_ESL_ORIGEM & "'"
+    aCampos(26, 0) = "ES1_CUSTO":     aCampos(26, 1) = gVgPt(LerNome("es1", "es1_cod = " & n_ES1_COD, "es1_prcusto"))
+    cn.Execute Monta_Sql(aCampos, "ESL", "I")
+    'ATUALIZA SALDO
+    If c_Oper = "S" Then
+        Call Saldo_Estoque(n_ES1_COD, Format(c_Es1_Alx, "00"), "S", CDate(d_ESL_EMIS), n_ESL_QTD, c_Ori)
+    Else
+        Call Saldo_Estoque(n_ES1_COD, Format(c_Es1_Alx, "00"), "E", CDate(d_ESL_EMIS), n_ESL_QTD, c_Ori)
+    End If
+Err_Banco_fim:
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: GERAL.Requisicao." & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.Requisicao.", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Next
+End Sub
+
+Sub Saldo_Estoque(n_ES1_COD As Long, c_Es1_Alx As String, c_Oper As String, d_Data As Date, n_Quant As Currency, c_Ori As String)
+On Error GoTo Err_Banco
+Dim n_ES2_QATU As Currency
+Dim n_ES2_QENT As Currency
+Dim n_ES2_QSAI As Currency
+   cSql = "SELECT * FROM ES2 "
+   cSql = cSql & "WHERE ES1_Cod = " & n_ES1_COD & " "
+   cSql = cSql & "AND ES1_ALX = '" & Format(c_Es1_Alx, "00") & "'"
+   rsTemp.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+   If Not rsTemp.EOF Then
+      If c_Oper = "E" Then
+         n_ES2_QATU = rsTemp!es2_qatu + n_Quant
+         If c_Ori = "E" Then
+            n_ES2_QENT = rsTemp!ES2_QENT + n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ES2_QSAI = rsTemp!ES2_QSAI - n_Quant
+         End If
+      ElseIf c_Oper = "S" Then
+         n_ES2_QATU = rsTemp!es2_qatu - n_Quant
+         If c_Ori = "E" Then
+            n_ES2_QENT = rsTemp!ES2_QENT - n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ES2_QSAI = rsTemp!ES2_QSAI + n_Quant
+         End If
+      End If
+      ReDim aCampos(6, 1)
+      aCampos(0, 0) = "ES1_COD":     aCampos(0, 1) = n_ES1_COD
+      aCampos(1, 0) = "ES1_ALX":     aCampos(1, 1) = "'" & Format(c_Es1_Alx, "00") & "'"
+      aCampos(2, 0) = "ES2_DATA":    aCampos(2, 1) = Formata_Data(d_Data, "D")
+      aCampos(3, 0) = "ES2_QATU":    aCampos(3, 1) = gVgPt(n_ES2_QATU)
+      aCampos(4, 0) = "ES2_QENT":    aCampos(4, 1) = IIf((n_ES2_QENT = 0), gVgPt(rsTemp!ES2_QENT), gVgPt(n_ES2_QENT))
+      aCampos(5, 0) = "ES2_QSAI":    aCampos(5, 1) = IIf((n_ES2_QSAI = 0), gVgPt(rsTemp!ES2_QSAI), gVgPt(n_ES2_QSAI))
+      cn.Execute Monta_Sql(aCampos, "ES2", "U", "ES1_COD = " & n_ES1_COD & " AND ES1_ALX = '" & c_Es1_Alx & "'")
+      cSql = "UPDATE ES1 SET ES2_QATU = " & gVgPt(n_ES2_QATU) & " WHERE ES1_COD = " & n_ES1_COD
+      cn.Execute cSql: DoEvents
+   Else
+      If c_Oper = "E" Then
+         n_ES2_QATU = 0 + n_Quant
+         If c_Ori = "E" Then
+            n_ES2_QENT = 0 + n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ES2_QSAI = 0 - n_Quant
+         End If
+      ElseIf c_Oper = "S" Then
+         n_ES2_QATU = 0 - n_Quant
+         If c_Ori = "E" Then
+            n_ES2_QENT = 0 - n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ES2_QSAI = 0 + n_Quant
+         End If
+      End If
+      ReDim aCampos(6, 1)
+      aCampos(0, 0) = "ES1_COD":     aCampos(0, 1) = n_ES1_COD
+      aCampos(1, 0) = "ES1_ALX":     aCampos(1, 1) = "'" & Format(c_Es1_Alx, "00") & "'"
+      aCampos(2, 0) = "ES2_DATA":    aCampos(2, 1) = Formata_Data(d_Data, "D")
+      aCampos(3, 0) = "ES2_QATU":    aCampos(3, 1) = gVgPt(n_ES2_QATU)
+      aCampos(4, 0) = "ES2_QENT":    aCampos(4, 1) = gVgPt(n_ES2_QENT)
+      aCampos(5, 0) = "ES2_QSAI":    aCampos(5, 1) = gVgPt(n_ES2_QSAI)
+      cn.Execute Monta_Sql(aCampos, "ES2", "I")
+      cSql = "UPDATE ES1 SET ES2_QATU = " & gVgPt(n_ES2_QATU) & " WHERE ES1_COD = " & n_ES1_COD
+      cn.Execute cSql: DoEvents
+      'GERANDO O SALDO MENSAL
+      ReDim aCampos(4, 1)
+      aCampos(0, 0) = "ES1_COD":                    aCampos(0, 1) = n_ES1_COD
+      aCampos(1, 0) = "ES1_ALX":                    aCampos(1, 1) = "'" & Format(c_Es1_Alx, "00") & "'"
+      aCampos(2, 0) = "ESD_Q" & Mid(Format(d_Data, "dd/mm/yy"), 4, 2): aCampos(2, 1) = 0
+      aCampos(3, 0) = "ESD_V" & Mid(Format(d_Data, "dd/mm/yy"), 4, 2):  aCampos(3, 1) = 0
+      cn.Execute Monta_Sql(aCampos, "ESD", "I")
+   End If
+Err_Banco_fim:
+   If rsTemp.State = 1 Then rsTemp.Close
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: GERAL.Saldo_Estoque." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Resume Err_Banco_fim
+    
+End Sub
+
+Public Sub Saldo_Lote(n_ES1_COD As Long, c_Es1_Alx As String, c_Oper As String, _
+                      d_Data As Date, n_Quant As Currency, c_Ori As String, _
+                      c_LOTE As String, d_ESM_VENCLOTE As Date)
+On Error GoTo Err_Banco
+   Dim n_ESM_QUANT  As Currency
+   Dim n_ESM_QENTRA As Currency
+   Dim n_ESM_QSAIDA As Currency
+   cSql = "SELECT * FROM ESM "
+   cSql = cSql & "WHERE ES1_COD = " & n_ES1_COD & " "
+   cSql = cSql & "AND ES1_ALX = '" & Format(c_Es1_Alx, "00") & "' "
+   cSql = cSql & "AND ESM_NRLOTE = '" & c_LOTE & "'"
+   rsTemp.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+   If Not rsTemp.EOF Then
+      If c_Oper = "E" Then
+         n_ESM_QUANT = rsTemp!ESM_QUANT + n_Quant
+         If c_Ori = "E" Then
+            n_ESM_QENTRA = rsTemp!ESM_QENTRA + n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ESM_QSAIDA = rsTemp!ESM_QSAIDA - n_Quant
+         End If
+      ElseIf c_Oper = "S" Then
+         n_ESM_QUANT = rsTemp!ESM_QUANT - n_Quant
+         If c_Ori = "E" Then
+            n_ESM_QENTRA = rsTemp!ESM_QENTRA - n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ESM_QSAIDA = rsTemp!ESM_QSAIDA + n_Quant
+         End If
+      End If
+      ReDim aCampos(8, 1)
+      aCampos(0, 0) = "ES1_COD":      aCampos(0, 1) = n_ES1_COD
+      aCampos(1, 0) = "ES1_ALX":      aCampos(1, 1) = "'" & Format(c_Es1_Alx, "00") & "'"
+      aCampos(2, 0) = "ESM_DTCAD":    aCampos(2, 1) = Formata_Data(d_Data, "D")
+      aCampos(3, 0) = "ESM_QUANT":    aCampos(3, 1) = gVgPt(n_ESM_QUANT)
+      aCampos(4, 0) = "ESM_QENTRA":   aCampos(4, 1) = gVgPt(n_ESM_QENTRA)
+      aCampos(5, 0) = "ESM_QSAIDA":   aCampos(5, 1) = gVgPt(n_ESM_QSAIDA)
+      aCampos(6, 0) = "ESM_NRLOTE":   aCampos(6, 1) = "'" & c_LOTE & "'"
+      aCampos(7, 0) = "ESM_VENCLOTE": aCampos(7, 1) = Formata_Data(d_ESM_VENCLOTE, "D")
+      cn.Execute Monta_Sql(aCampos, "ESM", "U", "ES1_COD = " & n_ES1_COD & " AND ES1_ALX = '" & c_Es1_Alx & "' AND ESM_NRLOTE = '" & c_LOTE & "'")
+   Else
+      If c_Oper = "E" Then
+         n_ESM_QUANT = 0 + n_Quant
+         If c_Ori = "E" Then
+            n_ESM_QENTRA = 0 + n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ESM_QSAIDA = 0 - n_Quant
+         End If
+      ElseIf c_Oper = "S" Then
+         n_ESM_QUANT = 0 - n_Quant
+         If c_Ori = "E" Then
+            n_ESM_QENTRA = 0 - n_Quant
+         ElseIf c_Ori = "S" Then
+            n_ESM_QSAIDA = 0 + n_Quant
+         End If
+      End If
+      ReDim aCampos(8, 1)
+      aCampos(0, 0) = "ES1_COD":      aCampos(0, 1) = n_ES1_COD
+      aCampos(1, 0) = "ES1_ALX":      aCampos(1, 1) = "'" & Format(c_Es1_Alx, "00") & "'"
+      aCampos(2, 0) = "ESM_DTCAD":    aCampos(2, 1) = Formata_Data(d_Data, "D")
+      aCampos(3, 0) = "ESM_QUANT":    aCampos(3, 1) = gVgPt(n_ESM_QUANT)
+      aCampos(4, 0) = "ESM_QENTRA":   aCampos(4, 1) = gVgPt(n_ESM_QENTRA)
+      aCampos(5, 0) = "ESM_QSAIDA":   aCampos(5, 1) = gVgPt(n_ESM_QSAIDA)
+      aCampos(6, 0) = "ESM_NRLOTE":   aCampos(6, 1) = "'" & c_LOTE & "'"
+      aCampos(7, 0) = "ESM_VENCLOTE": aCampos(7, 1) = Formata_Data(d_ESM_VENCLOTE, "D")
+      cn.Execute Monta_Sql(aCampos, "ESM", "I")
+   End If
+Err_Banco_fim:
+   If rsTemp.State = 1 Then rsTemp.Close
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: GERAL.Saldo_Lote." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.Saldo_Lote", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+End Sub
+
+Public Sub Preenche_Grid(grdControle As MSFlexGrid, cQuery As String, cCabec As Variant, nLargura As Variant, cFormato As Variant, cLimpar As String)
+On Error GoTo Err_Banco
+   Dim nIndLinha  As Integer
+   Dim nIndColuna As Integer
+   Dim aVetor()   As Variant
+   Dim nColunas   As Integer
+   Dim nLinhas    As Integer
+   Dim cLinha     As String
+   'Definir cabeçalho do grid
+   If cLimpar = "S" Then
+      grdControle.Cols = UBound(cCabec) + 1
+      grdControle.Rows = 0
+      For nIndColuna = 0 To UBound(cCabec)
+         grdControle.Col = nIndColuna
+         grdControle.ColWidth(nIndColuna) = nLargura(nIndColuna)
+         DoEvents
+      Next
+      cLinha = ""
+      For nIndColuna = 0 To UBound(cCabec)
+         cLinha = cLinha & cCabec(nIndColuna) & Chr(9)
+      Next
+      grdControle.AddItem cLinha
+   End If
+   If cQuery = "" Then
+      grdControle.Rows = 2
+      GoTo Err_Banco_fim
+   End If
+
+   rsTemp.Open cQuery, cn, adOpenForwardOnly, adLockReadOnly
+   If rsTemp.EOF Then
+      If cLimpar = "S" Then grdControle.Rows = 2
+      GoTo Err_Banco_fim
+   End If
+   aVetor = rsTemp.GetRows()   'retorna 10 registros e armazena-os no vetor dbvetor
+   rsTemp.Close
+   nLinhas = UBound(aVetor, 1)
+   nColunas = UBound(aVetor, 2)
+   cLinha = ""
+   For nIndColuna = 0 To nColunas
+      For nIndLinha = 0 To nLinhas
+         cLinha = cLinha & Format(aVetor(nIndLinha, nIndColuna), cFormato(nIndLinha)) & Chr(9)
+      Next
+      grdControle.AddItem cLinha
+      cLinha = ""
+      DoEvents
+   Next
+Err_Banco_fim:
+   If rsTemp.State = 1 Then rsTemp.Close
+   Set rsTemp = Nothing
+   grdControle.FixedCols = 1
+   If grdControle.Rows > 1 Then grdControle.FixedRows = 1
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: GERAL.PreencheGrid." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.PreencheGrid.", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+    
+End Sub
+
+Function Direita(cCampo As Variant)
+   Dim n_I As Integer
+   Dim cCampo11 As String * 11
+   cCampo11 = cCampo
+   For n_I = 11 To 1 Step -1
+      If Right(cCampo11, 1) = " " Then cCampo11 = " " + RTrim(cCampo11)
+   Next
+   Direita = cCampo11
+End Function
+
+Public Sub CalcGiro(c_De As String, c_Ate As String, n_Prod1 As Long, n_Prod2 As Long, c_Movto As String, Optional b_Limpa As Boolean)
+On Error GoTo Err_Banco
+   Dim n_Lin     As Integer
+   Dim a_Qtde    As Variant
+   Dim c_Emb     As String
+   Dim n_Familia As Integer
+   ReDim a_Qtde(29, 1)
+   ReDim aCampos(12)
+   For nI = 0 To 12
+      aCampos(nI) = ""
+      a_Qtde(nI, 1) = 0
+   Next
+   cAux = Format(c_De, "yyyy-mm-dd")
+   n_Lin = 0
+   For nI = 1 To 12
+      aCampos(nI) = Left$(cAux, 7)
+      a_Qtde(nI + n_Lin, 0) = "Mes_" & Format(nI, "00"): a_Qtde(nI + n_Lin, 1) = "'" & Left$(cAux, 7) & "'"
+      n_Lin = n_Lin + 1
+      a_Qtde(nI + n_Lin, 0) = "QMes_" & Format(nI, "00"): a_Qtde(nI + n_Lin, 1) = 0
+      cAux = Format(CDate(c_De) + nI * 30, "yyyy-mm-dd")
+      If aCampos(nI) = Left$(cAux, 7) Then
+         cAux = Format(CDate(cAux) + 5, "yyyy-mm-dd")
+         cAux = Left$(cAux, 8) & Left$(c_De, 2)
+      End If
+   Next
+   'APAGAR REGISTROS ANTERIORES
+   If b_Limpa Then
+      cn.Execute "DELETE FROM IMPCONSUMO WHERE USUARIO = '" & cUserName & "'"
+   End If
+   'LER SALDOS
+   cSql = "SELECT MID(ESL.ESL_EMIS,1,7) AS MES, SUM(ESL.ESL_QTD) AS QTDE, "
+   cSql = cSql & "ESL.ES1_COD, ES1.ES1_DESC, ES1.ES1_DESCEMB, ES1_FAMILIA "
+   cSql = cSql & "FROM ESL, ES1 "
+   cSql = cSql & "WHERE ESL.ES1_COD = ES1.ES1_COD "
+   cSql = cSql & "AND ESL.ESL_EMIS >= " & Formata_Data(c_De, "D") & " "
+   cSql = cSql & "AND ESL.ESL_EMIS <= " & Formata_Data(c_Ate, "D") & " "
+   If n_Prod1 > 0 And n_Prod2 > 0 Then
+      cSql = cSql & "AND ESL.ES1_COD >= " & n_Prod1 & " AND ESL.ES1_COD <= " & n_Prod2 & " "
+   End If
+   cSql = cSql & "AND ESL.CGI_COD = '" & c_Movto & "' "
+   cSql = cSql & "GROUP BY ESL.ES1_COD, MID(ESL.ESL_EMIS,1,7)"
+   rs.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+   Do While Not rs.EOF
+      a_Qtde(0, 0) = "Produto": a_Qtde(0, 1) = "'" & rs!es1_desc & " " & rs!es1_cod & "'"
+      c_Emb = rs!ES1_DESCEMB
+      n_ES1_COD = rs!es1_cod
+      n_Familia = rs!es1_familia
+      Do While rs!es1_cod = n_ES1_COD
+         n_Lin = 1
+         For nI = 1 To 12
+            a_Qtde(nI + n_Lin, 0) = "QMes_" & Format(nI, "00")
+            If aCampos(nI) = rs!Mes Then
+                a_Qtde(nI + n_Lin, 1) = gVgPt(rs!qtde)
+            End If
+            n_Lin = n_Lin + 1
+         Next
+         rs.MoveNext
+         If rs.EOF Then Exit Do
+      Loop
+      a_Qtde(25, 0) = "Usuario":   a_Qtde(25, 1) = "'" & cUserName & "'"
+      a_Qtde(26, 0) = "Embalagem": a_Qtde(26, 1) = "'" & c_Emb & "'"
+      a_Qtde(27, 0) = "Codigo":    a_Qtde(27, 1) = n_ES1_COD
+      a_Qtde(28, 0) = "Grupo":     a_Qtde(28, 1) = n_Familia
+      cn.Execute Monta_Sql(a_Qtde, "ImpConsumo", "I")
+   Loop
+Err_Banco_fim:
+   If rs.State = 1 Then rs.Close
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: GERAL.CalcGiro." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "GERAL.CalcGiro.", Err.Source, "", cUserName, "ROTINAS GERAIS", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+End Sub
+
+Function ChecarAcesso(nTransacao As Long, Tipo As String, Optional SemMensagem As Boolean) As Boolean
+    Dim Abrir, Novo, Editar, Excluir As Boolean
+    Select Case Mid(cPermissao, nTransacao, 1)
+        Case "0"
+            ChecarAcesso = False
+        Case "1"
+            ChecarAcesso = True
+            Abrir = True
+        Case "2"
+            ChecarAcesso = True
+            Abrir = True
+            Novo = True
+        Case "3"
+            ChecarAcesso = True
+            Abrir = True
+            Editar = True
+        Case "4"
+            ChecarAcesso = True
+            Abrir = True
+            Excluir = True
+        Case "5"
+            ChecarAcesso = True
+            Abrir = True
+            Novo = True
+            Editar = True
+        Case "6"
+            ChecarAcesso = True
+            Abrir = True
+            Novo = True
+            Excluir = True
+        Case "7"
+            ChecarAcesso = True
+            Abrir = True
+            Editar = True
+            Excluir = True
+        Case "8"
+            ChecarAcesso = True
+            Abrir = True
+            Novo = True
+            Editar = True
+            Excluir = True
+        Case Else
+            ChecarAcesso = False
+            Abrir = False
+            Novo = False
+            Excluir = False
+            Editar = False
+    End Select
+    Select Case Tipo
+        Case "a"
+            If Abrir = False Then ChecarAcesso = False
+        Case "i"
+            If Novo = False Then ChecarAcesso = False
+        Case "e"
+            If Editar = False Then ChecarAcesso = False
+        Case "x"
+            If Excluir = False Then ChecarAcesso = False
+    End Select
+    If ChecarAcesso = False And SemMensagem = False Then
+        MsgBox "Usuário sem acesso a esta Transação.", vbInformation, "SGLinx Atenção"
+    End If
+    Screen.MousePointer = 0
+End Function
+
+Function Atu_Produto(n_ES1_COD As Long, d_ES1_ULTCOMPRA As Date, _
+                    n_ES1_PRCUSTO As Currency, n_CMD_NUM As Long, _
+                    n_PrUltCompra As Currency, n_PMZ As Currency, _
+                    n_Sugestao As Currency, n_ES1_PRCUSTOCHEIO As Currency, _
+                    n_PMZCHEIO As Currency, n_SugestaoCheia As Currency)
+On Error GoTo TrataErro:
+    cSql = "UPDATE ES1 "
+    cSql = cSql & "SET ES1_ULTCOMPRA = " & Formata_Data(d_ES1_ULTCOMPRA, "D") & ", "
+    cSql = cSql & "ES1_PRCOMPRA = " & gVgPt(n_PrUltCompra) & ", "
+    cSql = cSql & "ES1_PRCUSTO = " & gVgPt(n_ES1_PRCUSTO) & ", "
+    cSql = cSql & "ES1_PMZ = " & gVgPt(n_PMZ) & ", "
+    cSql = cSql & "ES1_PRSUGESTAO = " & gVgPt(n_Sugestao) & ", "
+    cSql = cSql & "ES1_PRSUGESTAOMEDIA = " & gVgPt(n_SugestaoCheia) & ", "
+    cSql = cSql & "ES1_PRCUSTOMEDIO = " & gVgPt(n_ES1_PRCUSTOCHEIO) & ", "
+    cSql = cSql & "es1_pmzcheio = " & gVgPt(n_PMZCHEIO) & ", "
+    cSql = cSql & "CMD_NUM = " & gVgPt(n_CMD_NUM) & " "
+    cSql = cSql & "WHERE ES1_COD = " & Val(n_ES1_COD)
+    cn.Execute cSql: DoEvents
+Finaliza:
+   Exit Function
+TrataErro:
+   MsgBox "ROTINAS GERAIS:Atu_Produto " & Chr(13) & " " & Err.Number & " " & Err.Description
+   Resume Finaliza:
+    
+End Function
+
+Function Calc_Custo(CustoCheio As Boolean, n_ES1_COD As Integer, n_Quant As Double, vrCompra As Currency, vrICMS As Currency, vrIPI As Currency, vrFrete As Currency, vrDesconto As Currency) As Currency
+    Dim nCusto As Currency
+    Dim nQAtu As Double
+    Dim nCustoAnterior As Currency
+    'Calcular o Custo da Entrada Atual
+    nCusto = CDbl(vrCompra) - CDbl(vrDesconto)
+    nCusto = CDbl(nCusto) + CDbl(vrIPI) + CDbl(vrFrete)
+    nCusto = CDbl(nCusto) - CDbl(vrICMS)
+    'Calcular o Custo Médio
+    If CustoCheio = True Then
+        cSql = "select es2_qatu, es1_prcustomedio from es1 where es1_cod = " & Val(n_ES1_COD)
+        rsTemp1.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+        If Not rsTemp1.EOF Then
+            If IsNull(rsTemp1!es2_qatu) = False Then nQAtu = CDbl(rsTemp1!es2_qatu)
+            If IsNull(rsTemp1!ES1_prcustomedio) = False Then nCustoAnterior = CCur(rsTemp1!ES1_prcustomedio)
+        End If
+        rsTemp1.Close
+        If nQAtu > 0 Then nQAtu = CDbl(nQAtu) - CDbl(n_Quant)
+        nCustoAnterior = nCustoAnterior * nQAtu
+        nCusto = nCusto * n_Quant
+        nCusto = nCusto + nCustoAnterior
+        nQAtu = n_Quant + nQAtu
+        If nQAtu <= 0 Then nQAtu = 1
+        nCusto = nCusto / nQAtu
+    End If
+    Calc_Custo = Format(nCusto, "####,##0.00")
+End Function
+
+Function Calc_PMZ(vrCusto As Currency, n_ES1_COD As Integer) As Currency
+    Dim n_PMZ As Currency
+    Dim n_ICMS As Double
+    Dim n_Operacional As Double
+    n_Operacional = LerParametro("DESPESA_OPERACIONAL")
+    n_ICMS = LerNome("es1", "es1_cod = " & n_ES1_COD, "es1_tributacao")
+    n_ICMS = LerNome("icms", "codigo = " & n_ICMS, "valor")
+    n_PMZ = (CDbl(vrCusto) * 100) / (100 - (CDbl(n_Operacional) + CDbl(n_ICMS)))
+    Calc_PMZ = Format(n_PMZ, "####,##0.00")
+End Function
+
+Function Calc_Margem(vrCusto As Currency, n_ES1_COD As Integer, Optional nMargem As Currency) As Currency
+    Dim n_PrMargem As Currency
+    Dim n_ICMS As Double
+    Dim n_Operacional As Double
+    n_Operacional = LerParametro("DESPESA_OPERACIONAL")
+    If CDbl(nMargem) > 0 Then
+        n_PrMargem = nMargem
+    Else
+        n_PrMargem = LerNome("es1", "es1_cod = " & Val(n_ES1_COD), "es1_margemcom")
+    End If
+    n_ICMS = LerNome("es1", "es1_cod = " & n_ES1_COD, "es1_tributacao")
+    n_ICMS = LerNome("icms", "codigo = " & n_ICMS, "valor")
+    n_PrMargem = (CDbl(vrCusto) * 100) / (100 - (CDbl(n_PrMargem) + CDbl(n_Operacional) + CDbl(n_ICMS)))
+    Calc_Margem = Format(n_PrMargem, "####,##0.00")
+End Function
+
+Public Function ValidaPath(Caminho As String)
+Dim i As Integer
+Dim p As Integer
+
+Caminho = Replace(Caminho, "/", "\")
+On Error GoTo Trata_erro
+    p = 3
+    For i = 0 To 20
+        p = InStr(p + 1, Caminho, "\")
+        If p = 0 Then
+            If Len(Dir(Caminho, vbDirectory)) = 0 Then
+                MkDir (Caminho)
+            End If
+            Exit For
+        End If
+        If Len(Dir(Mid(Caminho, 1, p - 1), vbDirectory)) = 0 Then
+            MkDir (Mid(Caminho, 1, p - 1))
+        End If
+    Next
+Exit Function
+Trata_erro:
+    MsgBox "ERRO NA ROTINA (VALIDA PATH)", vbCritical, "Sglinx"
+    Exit Function
+End Function
+
+Public Sub Fontes(ByRef MeuForm As Form)
+   Dim Controle As Control
+   Dim appname As String
+   Dim revisionDate As String
+   Dim revisionName  As String
+   appname = Dir(App.Path & "\LeitorCotacao.exe")
+   If appname <> "" Then revisionDate = FileDateTime(appname)
+    revisionName = Format(App.Major, "00") & "." & Format(App.Minor, "00") & "." & Format(App.Revision, "00")
+    MeuForm.Caption = "..:: " & MeuForm.Caption & " ::..     " & " Revisão: " & revisionDate & " " & revisionName
+   For Each Controle In MeuForm.Controls
+      If TypeName(Controle) = "TextBox" Then
+        Controle.FontSize = 9
+        'Controle.Height = 330
+        Controle.Font = "Arial"
+      End If
+      If TypeName(Controle) = "MaskEdBox" Then
+        Controle.FontSize = 9
+        Controle.AutoTab = False
+        Controle.Font = "Arial"
+        Controle.Height = 330
+        If Controle.Mask = "##/##/##" Then
+            Controle.Format = "DD/MM/YY"
+        End If
+      End If
+      If TypeName(Controle) = "MSFlexGrid" Then
+        Controle.FontSize = 9
+        Controle.Font = "Arial"
+      End If
+      If TypeName(Controle) = "ListBox" Then Controle.FontSize = 9
+      If TypeName(Controle) = "SSTab" Then Controle.Font.Size = 9
+      If TypeName(Controle) = "ComboBox" Then
+        Controle.FontSize = 9
+        Controle.Font = "Arial"
+      End If
+   Next Controle
+End Sub
+
+Public Function Valida_Data(Campo As Object) As Boolean
+On Error GoTo Err
+    Dim dValida As Date
+    Dim nTemp As Integer
+    If Campo.Text = "__/__/__" Then Exit Function
+    nTemp = Right(Campo, 2)
+    If nTemp >= 90 And nTemp <= 99 Then nTemp = 19 Else nTemp = 20
+    dValida = Left(Campo, 6) & nTemp & Right(Campo, 2)
+    If IsDate(dValida) = True Then Valida_Data = True
+Err:
+    If Err.Number = 13 Then
+        MsgBox "Data Inválida.", vbInformation, "SGLinx Atenção"
+        Campo.SetFocus
+        Exit Function
+    End If
+End Function
+
+Public Function CalculaEan(CODIGO As String) As Integer
+    Dim N1, N2, N3, N4, N5, N6, N7, N8, N9, N10, N11, n, NT, N12 As Integer
+    Dim Ncodigo As String
+    CODIGO = Format(CODIGO, "000000000000") 'para essa função mandar sempre o codigo sem o digito. com tamanho de 12
+    Ncodigo = Mid(CODIGO, 1, 12)
+    N1 = Left(Ncodigo, 1) * 1
+    N2 = Mid(Ncodigo, 2, 1) * 3
+    N3 = Mid(Ncodigo, 3, 1) * 1
+    N4 = Mid(Ncodigo, 4, 1) * 3
+    N5 = Mid(Ncodigo, 5, 1) * 1
+    N6 = Mid(Ncodigo, 6, 1) * 3
+    N7 = Mid(Ncodigo, 7, 1) * 1
+    N8 = Mid(Ncodigo, 8, 1) * 3
+    N9 = Mid(Ncodigo, 9, 1) * 1
+    N10 = Mid(Ncodigo, 10, 1) * 3
+    N11 = Mid(Ncodigo, 11, 1) * 1
+    N12 = Right(Ncodigo, 1) * 3
+    NT = CInt(Right(N1, 1)) + CInt(Right(N2, 1)) + CInt(Right(N3, 1)) + _
+    CInt(Right(N4, 1)) + CInt(Right(N5, 1)) + CInt(Right(N6, 1)) + _
+    CInt(Right(N7, 1)) + CInt(Right(N8, 1)) + CInt(Right(N9, 1)) + _
+    CInt(Right(N10, 1)) + CInt(Right(N11, 1)) + CInt(Right(N12, 1))
+    If Right(NT, 1) = "0" Then
+        CalculaEan = 0
+        Exit Function
+    End If
+    CalculaEan = 10 - CInt(Right(NT, 1))
+End Function
+
+Private Function Valida_Menu(Licenca As String)
+    Dim cKey0, cKey1, cKey2, cKey3, cKey4 As String
+    If Licenca = "" Then
+        MsgBox "Licença Inválida. Contate nosso Suporte Técnico.", vbInformation, "SGLinx Atenção"
+        End
+    End If
+    cLicenca = StrConv(cLicenca, vbLowerCase)
+    cKey1 = Left(cLicenca, 4)
+    cKey2 = Mid(cLicenca, 6, 4)
+    cKey3 = Mid(cLicenca, 11, 4)
+    cKey4 = Right(cLicenca, 4)
+    If InStr(cKey1, "f") Then
+        cKey0 = "f"
+        If InStr(cKey2, "u") Then cKey0 = cKey0 & "u"
+        If InStr(cKey3, "l") Then cKey0 = cKey0 & "l"
+        If InStr(cKey4, "l") Then cKey0 = cKey0 & "l"
+    End If
+    If InStr(cKey1, "l") And cKey0 = "" Then
+        cKey0 = "l"
+        If InStr(cKey2, "i") Then cKey0 = cKey0 & "i"
+        If InStr(cKey3, "t") Then cKey0 = cKey0 & "t"
+        If InStr(cKey4, "e") Then cKey0 = cKey0 & "e"
+    End If
+    If cKey0 <> "full" And cKey0 <> "lite" Then
+        MsgBox "Licença Inválida. Contate nosso Suporte Técnico.", vbInformation, "SGLinx Atenção"
+        End
+    End If
+End Function
+
+Public Function Atu_ItenNota(cmd_num As Long, cmd_serie As Integer, _
+                    cma_item As Integer, d_ULTCOMPRA As Date, _
+                    n_PRCUSTO As Currency, n_PrUltCompra As Currency, _
+                    n_PMZ As Currency, n_Sugestao As Currency, _
+                    n_PRCUSTOCHEIO As Currency, n_PMZCHEIO As Currency, _
+                    n_SugestaoCheia As Currency)
+    cSql = "update cma set es1_prcusto = " & gVgPt(n_PRCUSTO)
+    cSql = cSql & ", es1_prcustomedio = " & gVgPt(n_PRCUSTOCHEIO)
+    cSql = cSql & ", es1_pmz = " & gVgPt(n_PMZ)
+    cSql = cSql & ", es1_pmzcheio = " & gVgPt(n_PMZCHEIO)
+    cSql = cSql & ", es1_prsugestao = " & gVgPt(n_Sugestao)
+    cSql = cSql & ", es1_prsugestaomedia = " & gVgPt(n_SugestaoCheia)
+    cSql = cSql & " where cmd_num = " & Val(cmd_num) & " and "
+    cSql = cSql & " cmd_serie = " & cmd_serie & " and "
+    cSql = cSql & " cma_item = " & Val(cma_item)
+    cn.Execute cSql: DoEvents
+End Function
+
+Public Function Trunca(vgValor As Double, vgNumDecimais As Variant) As Currency
+  Trunca = Int(Val(Str(vgValor * 10 ^ vgNumDecimais))) / 10 ^ vgNumDecimais 'retorna o valor corrigido
+End Function
+
+Public Function Giro_Diario(Produto As Long, cDtInicio As Date, cDtTermino As Date) As Double
+    Dim nVendas, nDevol As Double
+    Dim nQVendas, nQDevol As Double
+    cSql = "select es1_cod, sum(esl_qtd) as Soma from esl where es1_cod = " & Val(Produto) & " and esl_emis between " & Formata_Data(cDtInicio, "D") & " and " & Formata_Data(cDtTermino, "D") & " and esl_ori = 'S' and esl_oper = 'S' group by es1_cod"
+    rsTemp.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+    If rsTemp.EOF = False Then
+        If CDbl(rsTemp!soma) > 0 Then nVendas = CDbl(rsTemp!soma)
+    Else
+        nVendas = 0
+    End If
+    rsTemp.Close
+    nQVendas = DateDiff("d", CDate(cDtInicio), CDate(cDtTermino))
+    cSql = "select es1_cod, sum(esl_qtd) as Soma from esl where es1_cod = " & Val(Produto) & " and esl_emis between " & Formata_Data(cDtInicio, "D") & " and " & Formata_Data(cDtTermino, "D") & " and esl_ori = 'S' and esl_oper = 'E' group by es1_cod"
+    rsTemp.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+    If rsTemp.EOF = False Then
+        If CDbl(rsTemp!soma) > 0 Then nDevol = CDbl(rsTemp!soma)
+    Else
+        nDevol = 0
+    End If
+    rsTemp.Close
+    nVendas = CDbl(nVendas) - CDbl(nDevol)
+    If nVendas > 0 And nQVendas > 0 Then
+        Giro_Diario = Format(nVendas / nQVendas, "####,##0.000")
+    Else
+        Giro_Diario = 0
+    End If
+End Function
+
+Public Sub Habilita_Botoes_Campos(ByRef MeuForm As Form, bAtiva As Boolean)
+    Dim Controle As Control
+    For Each Controle In MeuForm.Controls
+        Select Case TypeName(Controle)
+            Case "TextBox"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "Frame"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "CommandButton"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "ListBox"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "MaskEdBox"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "MSFlexGrid"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+            Case "ListBox"
+                If Mid(Controle.Tag, 2, 1) = "N" Then Controle.Enabled = Not bAtiva
+                If Mid(Controle.Tag, 2, 1) = "S" Then Controle.Enabled = bAtiva
+        End Select
+    Next
+End Sub
+
+Public Sub Limpa_Campos_Funcao(ByRef MeuForm As Form)
+    Dim Controle As Control
+    For Each Controle In MeuForm.Controls
+        Select Case TypeName(Controle)
+            Case "TextBox"
+                If Left(Controle.Tag, 1) = "S" Then Controle.Text = ""
+                If Mid(Controle.Tag, 3, 1) = "S" Then Controle.Text = "0,00"
+            Case "MaskEdBox"
+                If Left(Controle.Tag, 1) = "S" Then
+                    If Controle.Mask = "##/##/##" Then Controle.Text = "__/__/__"
+                    If Controle.Mask = "###.###.###-##" Then Controle.Text = "___.___.___-__"
+                    If Controle.Mask = "##.###.###/####-##" Then Controle.Text = "__.___.___/____-__"
+                End If
+            Case "ComboBox"
+                If Left(Controle.Tag, 1) = "S" Then Controle.ListIndex = -1
+            Case "CheckBox"
+                If Left(Controle.Tag, 1) = "S" Then Controle.Value = 0
+            Case "MSFlexGrid"
+                If Left(Controle.Tag, 1) = "S" Then Controle.Rows = 1
+        End Select
+    Next
+End Sub
+
+Public Sub Processa_Lotes()
+On Error GoTo Err_Banco
+    If Not ChecarAcesso(73, "a", True) Then Exit Sub
+    Screen.MousePointer = 11
+    cSql = "select lot_num, cg6_cod from lote where lot_deposito <= " & Formata_Data(dDataBase - LerParametro("FIN_LOTE_CARENCIA"), "D") & " and lot_status = 0"
+    rs.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+    Do While Not rs.EOF
+        cSql = "select * from lote_item where lot_num = " & rs!lot_num
+        rsTemp.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+        Do While Not rsTemp.EOF
+            'GERAR LANÇAMENTO CAIXA/BANCO
+            cSql = "select * from fn1 where fn1_num = " & rsTemp!fn1_num
+            rsTemp1.Open cSql, cn, adOpenForwardOnly, adLockReadOnly
+            If Not rsTemp1.EOF Then
+                nAux = ProxCod("Fn5_Num", "Fn5")
+                ReDim aCampos(14, 1)
+                aCampos(0, 0) = "CG6_Cod":       aCampos(0, 1) = rs!cg6_cod
+                aCampos(1, 0) = "Fn5_Doc":       aCampos(1, 1) = rsTemp1!fn1_doc
+                aCampos(2, 0) = "Fn5_Data":      aCampos(2, 1) = Formata_Data(dDataBase, "D")
+                aCampos(3, 0) = "Fn5_RECPAG":    aCampos(3, 1) = "'E'"
+                aCampos(4, 0) = "Fn5_Hist":      aCampos(4, 1) = "'Processamento Lote nr. " & rs!lot_num & "'"
+                aCampos(5, 0) = "Fn5_Valor":     aCampos(5, 1) = gVgPt(rsTemp1!fn1_valor)
+                aCampos(6, 0) = "FnB_Cod":       aCampos(6, 1) = "'" & rsTemp1!fnb_cod & "'"
+                aCampos(7, 0) = "Fn5_Tipo":      aCampos(7, 1) = "'4'"
+                aCampos(8, 0) = "Fn5_DtDoc":     aCampos(8, 1) = Formata_Data(dDataBase, "D")
+                aCampos(9, 0) = "Fn5_Num":       aCampos(9, 1) = nAux
+                aCampos(10, 0) = "FN1_NUM":      aCampos(10, 1) = Val(rsTemp!fn1_num)
+                aCampos(11, 0) = "FN1_PARC":     aCampos(11, 1) = rsTemp1!FN1_PARC
+                aCampos(12, 0) = "FN5_EMPRESA":  aCampos(12, 1) = "'" & rsTemp1!fa7_serie & "'"
+                aCampos(13, 0) = "cc_cod":       aCampos(13, 1) = rsTemp1!cc_cod
+                cn.Execute Monta_Sql(aCampos, "fn5", "I")
+                'ATUALIZAR DADOS DA BAIXA DO TITULO
+                ReDim aCampos(9, 1)
+                aCampos(0, 0) = "FN1_DTBAIXA":   aCampos(0, 1) = Formata_Data(dDataBase, "D")
+                aCampos(1, 0) = "CG6_COD":       aCampos(1, 1) = rs!cg6_cod
+                aCampos(2, 0) = "FN1_CHEQUE":    aCampos(2, 1) = "''"
+                aCampos(3, 0) = "FN1_JUROS":     aCampos(3, 1) = 0
+                aCampos(4, 0) = "FN1_MOTIVO":    aCampos(4, 1) = "'Processamento Lote nr. " & rs!lot_num & "'"
+                aCampos(5, 0) = "FN1_MULTA":     aCampos(5, 1) = 0
+                aCampos(6, 0) = "Fn1_Recto":     aCampos(6, 1) = 0
+                aCampos(7, 0) = "FN1_DTCHEQUE":  aCampos(7, 1) = Formata_Data(dDataBase, "D")
+                aCampos(8, 0) = "FN1_DESCONTO":  aCampos(8, 1) = 0
+                cn.Execute Monta_Sql(aCampos, "fn1", "U", "FN1_NUM = " & rsTemp!fn1_num)
+            End If
+            rsTemp1.Close
+            rsTemp.MoveNext
+            DoEvents
+        Loop
+        rsTemp.Close
+        cn.Execute "update lote set lot_status = 1 where lot_num = " & rs!lot_num
+        rs.MoveNext
+        DoEvents
+    Loop
+    rs.Close
+Err_Banco_fim:
+   If rs.State = 1 Then rs.Close
+   If rsTemp.State = 1 Then rsTemp.Close
+   If rsTemp1.State = 1 Then rsTemp1.Close
+   Screen.MousePointer = 0
+   Exit Sub
+Err_Banco:
+   MsgBox "ROTINA: FN1.cmdGravar_Click." & vbCrLf & "RELATÓRIO: " & vbCrLf & "DESCRIÇÃO DO ERRO: " & Err.Description & vbCrLf & "NÚMERO DO ERRO: " & Err.Number & vbCrLf & "ORIGEM DO ERRO: " & Err.Source
+   Call LogErros(Err.Number, Err.Description, "FN1.cmdGravar_Click.", Err.Source, "", cUserName, "FN1", Format(Date, "dd/mm/yy"), Format(Time, "hh:mm"), "maquina")
+   Resume Err_Banco_fim
+End Sub
+
+Public Function Converte_UM(Quant As Double, Fator As Integer, Tipo As String) As Double
+    Converte_UM = 0
+    If Fator = 0 Then
+        MsgBox "Não foi informada a Quantidade da Embalagem de Compra.", vbInformation, "SGLinx Atenção"
+        Exit Function
+    End If
+    If Tipo = "C" Then
+        Converte_UM = Format(Quant * Fator, "###,##0.000")
+    Else
+        Converte_UM = Format(Quant / Fator, "###,##0.000")
+    End If
+End Function
+
+Public Sub InstanciaDllSeguranca()
+        '<EhHeader>
+        On Error GoTo InstanciaDllSeguranca_Err
+        '</EhHeader>
+100     Dim iCount As Integer
+101     Set LinearSegurancaDll = CreateObject("LinearSeguranca.clsInicializa")
+    '<EhFooter>
+        Exit Sub
+InstanciaDllSeguranca_Err:
+        If iCount < 2 Then
+            iCount = iCount + 1
+            Call Shell("regsvr32.exe " & App.Path & "\LinearSeguranca.dll /s", vbMinimizedFocus)
+            Sleep 200
+            Resume 0
+        Else
+            MsgBox "Arquivo necessário para Login não localizado, entre em contato com o Suporte." & vbCrLf & vbCrLf & "O sistema não será iniciado!", vbInformation, "Leitor Cotação"
+            End
+        End If
+    '</EhFooter>
+End Sub
